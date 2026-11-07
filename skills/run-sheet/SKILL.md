@@ -32,7 +32,7 @@ Every candidate's blockers, walked to the end of the chain. Issues: `<issues> su
 
 - a chain that ends on a person (`ready-for-human`, `needs-*`, the maintainer's in-progress work): the ticket waits, or leaves the run;
 - a blocker outside the run that an agent is building elsewhere: the ticket waits, or leaves the run;
-- a blocker with a lower priority than what waits on it, a stale block (only closed blockers left), or a cycle: a question for the user in step 6.
+- a blocker with a lower priority than what waits on it, or a cycle: a question for the user in step 6. An issue whose blockers are all closed is unblocked.
 
 Also list, from each candidate's `blocks:` line (issues) or `ticket.py refs` (markdown), the tickets outside the run that it unblocks.
 

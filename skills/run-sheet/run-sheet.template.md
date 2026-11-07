@@ -43,7 +43,7 @@ Every ticket's blockers walked to the end of the chain (`issues.py survey <miles
 walks them again before the first agent and reports what changed.
 
 - <ticket>: waits on <ticket> (<a person: ready-for-human / an agent: built in this run or elsewhere>). The run: <waits / leaves it out / the user fixes it first>.
-- Problems (a blocker with a lower priority than what waits on it, a stale block, a cycle): <each, and what the user decided>, or "none".
+- Problems (a blocker with a lower priority than what waits on it, a cycle): <each, and what the user decided>, or "none".
 
 ## Lanes
 
