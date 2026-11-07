@@ -5,6 +5,7 @@ Everything particular to one unattended run; the orchestrator brief
 `/ticket-run <this file>`. Copy to the notes repo's `sessions/<date>-run-sheet.md`, fill every
 line, delete none.
 
+- **Tickets:** issues in milestone `<project>/<feature>`, or, for a feature not yet moved to issues, the markdown folder `<project>/tickets/<feature>`.
 - **Repo:** `<owner/repo>` at `~/code/<owner>/<repo>`.
 - **Feature branch:** `<branch>`, worktree `~/code/<owner>/<repo>.<branch>`.
 - **PR:** `<owner/repo#n>`, or "open a draft".
@@ -31,9 +32,18 @@ last sheet for the same repo where there is one.
 
 ## Read, beyond the brief's list
 
-- Tickets: `<project>/tickets/<feature>/issues/` <NN, NN, ...>.
+- Tickets: issues <#n, #n, ...>, or the folder's `issues/` <NN, NN, ...>.
 - Decisions: `<project>/decisions/<NNNN>`, ...
 - Spec blocks: `<project>/tickets/<feature>/spec.md`, "<heading>" (stories <a> to <b>) and its implementation block.
+
+## Blocker walk
+
+Every ticket's blockers walked to the end of the chain (`issues.py survey <milestone>`, `chain
+<n>`, `check`; or `check-tickets.py <folder>`), when the sheet was written. The orchestrator
+walks them again before the first agent and reports what changed.
+
+- <ticket>: waits on <ticket> (<a person: ready-for-human / an agent: built in this run or elsewhere>). The run: <waits / leaves it out / the user fixes it first>.
+- Problems (a blocker with a lower priority than what waits on it, a stale block, a cycle): <each, and what the user decided>, or "none".
 
 ## Lanes
 
@@ -42,7 +52,7 @@ last sheet for the same repo where there is one.
 | Phase 0 (optional) | <NN> | Sonnet | | merges before any other branch is cut; no browser check |
 | <name> | <NN> → <NN> | <Opus/Sonnet per ticket> | | |
 
-A ticket left `ready-for-human` only for a check by eye: its dependents start <on its merge / once it is resolved>.
+A ticket left `ready-for-human` only for a check by eye: its dependents start <on its merge / once it is closed>.
 
 Longest lane first. Opus for a custom admin screen or framework internals; Sonnet for a rule, a field or a migration.
 
@@ -58,7 +68,8 @@ Longest lane first. Opus for a custom admin screen or framework internals; Sonne
 
 ## Tickets elsewhere that this run unblocks
 
-- <project/feature NN> (from `ticket.py refs`): blocked by <NN>; when they resolve it becomes `ready-for-human — waits on this PR reaching main` (the notes repo's hook refuses a commit that leaves it `blocked`).
+- Issues: <#n> (from the `blocks:` line of `issues.py chain`), blocked by <#n>. Closing the blocker clears the link; the issue keeps its status, and a comment says it waits on this PR reaching `main`.
+- Markdown: <project/feature NN> (from `ticket.py refs`), blocked by <NN>; when they resolve it becomes `ready-for-human — waits on this PR reaching main` (the notes repo's hook refuses a commit that leaves it `blocked`).
 - PR: if `gh pr create` is refused, the run goes on and the report asks the user to open it.
 
 ## Final sweep

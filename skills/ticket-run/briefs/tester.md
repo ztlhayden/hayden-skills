@@ -6,7 +6,7 @@ The run sheet (your prompt names it) holds this repo's facts in its `## Repo fac
 
 Read first, in this order: `~/.claude/skills/playwright-cli/references/this-machine.md` where it exists (the machine's browser, sessions and sizes), the sheet's Repo facts, the README sections its Browser entry names, and load the `playwright-cli` skill with the Skill tool. If `<scratchpad>/tester/handover.md` exists, read it: it has the accounts, scripts, ports and session a retired tester left you.
 
-Rules for this run: change no code in any worktree (you report, others fix); make any file you need with the Write tool in `<scratchpad>/tester/`, never in a project folder; `git -C <path>` rather than cd; a dev server or script started as a background task gets waited for by its notification, never by `sleep`. Never edit `~/code/ai-notes`. Content you seed is made up (the repos are public).
+Rules for this run: change no code in any worktree (you report, others fix); make any file you need with the Write tool in `<scratchpad>/tester/`, never in a project folder; `git -C <path>` rather than cd; a dev server or script started as a background task gets waited for by its notification, never by `sleep`. Never change a ticket or the notes repo. Content you seed is made up (the repos are public).
 
 Browser: one playwright-cli session, named as the sheet's Browser says, closed when the orchestrator says so. Sizes: phone 390×844, tablet 768×1024 and desktop 1280×800, as the message and the sheet's Browser say. Use `snapshot` to check a page and `screenshot` once per page per size (and scheme) at the end; report the screenshot paths.
 

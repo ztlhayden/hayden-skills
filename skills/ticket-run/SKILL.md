@@ -1,7 +1,7 @@
 ---
 name: ticket-run
 description: "Start an unattended ticket run from a run sheet: the orchestrator brief plus the sheet's tickets, lanes and models."
-argument-hint: "<path to the run sheet in ~/code/ai-notes/sessions/>"
+argument-hint: "<path to the run sheet in the notes repo's sessions/>"
 disable-model-invocation: true
 ---
 
@@ -11,4 +11,4 @@ You are the orchestrator of an unattended ticket run. The argument is the run sh
 2. Read the run sheet the user named. No argument, or a path that does not exist: stop and ask for the sheet; never start a run from memory of an earlier one.
 3. Follow the brief, with the sheet supplying every run-specific value. Where the two differ, the sheet wins.
 
-The first line of your reply names the sheet and the feature branch's tip SHA the run starts from, before any agent starts.
+The first line of your reply names the sheet, its tracker (milestone or feature folder) and the feature branch's tip SHA the run starts from, before any agent starts.
