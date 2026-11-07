@@ -7,7 +7,7 @@ The run sheet (the file the user named with this brief) holds everything that is
 ## Hard limits
 
 - Desks. At most the sheet's number of agents running at once, counting the browser tester, developers, reviewers and the merger. You don't count. Before starting an agent, count those still running; at the cap, wait for one to finish.
-- One repo. Read and change only the sheet's repo and its worktrees, plus `~/code/ai-notes` (tickets, notes; only you write there). No other repo, even where a ticket names one: build the ticket's boxes for this repo, and when it merges leave it `ready-for-human — <repo> side on <branch> (<sha>); left: <the other repo's half>`, listed in the PR body.
+- One repo. Read and change only the sheet's repo and its worktrees, plus `~/code/ai-notes` (tickets, notes; only you write there). No other repo, even where a ticket names one: build the ticket's boxes for this repo, and when it merges leave it `ready-for-human — <repo> side on <branch> (<sha>); left: <the other repo's half>`, and say in the PR body, in plain words, what the other repo must still do.
 - No assumptions. Agents build only what the ticket, its spec and the decisions it cites settle. Where they don't, the agent stops that part and reports it. You then write it on the ticket under `## Comments` (what was found, where, options, a recommendation), set `Status: ready-for-human — <one line: what the maintainer decides>`, and don't merge that ticket's unfinished work. Its branch stays pushed. Tickets it blocks stay blocked.
 - Nothing deploys. Never push to `main`, never force-push, never merge the PR. Migrations run only against the local database container. No wrangler, ssh, Cloudflare, Jira or GitHub settings.
 - Out of scope: whatever the sheet excludes, even if shown as ready.
@@ -30,7 +30,7 @@ A seam is a place where one lane's change is read by another's (the sheet names 
 ## Branches and worktrees
 
 - The feature branch and its worktree are the sheet's. Before anything else: `git fetch`; `git -C <worktree> status --short`. A worktree that is not clean stops the run: report what is there; another session may hold uncommitted work, and nothing of theirs is stashed, discarded or committed by you. A clean one: confirm it matches its remote branch and record the tip SHA. The whole-run review at the end covers from this SHA.
-- The PR: the sheet names it, or says to open a draft from the feature branch to `main` titled for the feature, body per the `/pr` skill, listing the tickets it builds. While the feature branch still equals `main` GitHub refuses it: open it after the first merge. Update the body as tickets land. Never merge it.
+- The PR: the sheet names it, or says to open a draft from the feature branch to `main` titled for the feature, body per the `/pr` skill, saying in plain words what it adds. The PR's title and body, and every commit message, name no ticket (its number, its title as a ticket, or a notes-repo path): only the maintainer uses the tickets, and the rest of the team doesn't know them. While the feature branch still equals `main` GitHub refuses it: open it after the first merge. Update the body as tickets land. Never merge it.
 - One branch per ticket, `<feature>-<NN>-<slug>`, from the current tip of the feature branch, in worktree `<repo>.<feature>-<NN>`, each with its own install.
 - Where the sheet's Repo facts name a database: one per worktree, as its Database entry says. Ports are 3100 + NN.
 
@@ -50,7 +50,7 @@ An agent the account's session limit stops is resumed where it stopped once the 
 1. Read `git diff --stat` for the branch and the reviewer's file.
 2. When it's merged, close the ticket in one call: write a comment `**<today> (agent):**` of at most six lines (branch, short SHAs, what landed, tests, review and browser results; the reports hold the rest) to a scratchpad file, then `python3 ~/.claude/skills/project-notes/scripts/ticket.py resolve <ticket> --status "resolved — on <feature branch> (<sha>), PR <owner/repo#n>" --comment-file <file> --tick`. `--tick` ticks every box: when some aren't done, leave it off and tick the done ones with Edit first. The call moves the ticket to `issues/archive/` and prints its new path and every file whose paths it fixed; stage all of them, and the old path's deletion, in step 3.
 3. Commit and push ai-notes to `main`, staging only the files you changed (never `git add -A`; `.claude/worktrees/` is untracked and stays so): commit, fetch, rebase `origin/main`, `timeout 60 git -C ~/code/ai-notes push origin HEAD:main`. The pre-commit hook runs `check-tickets.py`; fix what it reports.
-4. Add the ticket's row and findings to the report draft and the PR body in your scratchpad now, not at the end.
+4. Add the ticket's row and findings to the report draft, and what it landed to the PR body, in your scratchpad now, not at the end.
 5. Remove the ticket's worktree and drop its database, if it has one. Start the next phase.
 
 ## Finishing
@@ -59,7 +59,7 @@ When no lane has a buildable ticket left. If a ticket is blocked only on a relea
 
 1. One fresh Opus reviewer runs `/code-review` on the feature branch from the tip SHA recorded at the start (name it in the prompt), never from `origin/main`. One Sonnet developer fixes the fix-required findings on its own branch, which the same reviewer (resumed) checks and a merger lands: two rounds at most, as for a ticket. Anything unsettled becomes a finding on the ticket it belongs to.
 2. A fresh browser tester checks the screens the sheet lists once more on the merged branch, at all three sizes, then closes its session and servers.
-3. Push the branch; confirm with `git ls-remote`. Update the PR body: tickets built, tickets left for the maintainer and why, migrations added, any other repo's half that must land first.
+3. Push the branch; confirm with `git ls-remote`. Update the PR body: what landed, what was left for the maintainer and why (in plain words, as above), migrations added, any other repo's half that must land first.
 4. Remove the remaining ticket worktrees (leave the feature branch's). The pre-commit hook ran throughout; the retro measures it, not you.
 
 ## The report
