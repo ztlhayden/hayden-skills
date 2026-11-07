@@ -31,8 +31,9 @@ its `~/code/owner/name` path): `migrate-issues.py` reads owners from it.
 The map is only useful while it is current. In the session where a fact in it
 changes (a repo is created or renamed, a branch merges, the user changes a push
 rule, a deploy target moves), update the row and push the notes repo. A new repo
-also gets a `repo:` label, its GitHub name without the owner (`gh label
-create`), then `issues.py start-here`. When you read
+also gets a `repo:` label, its GitHub name without the owner: `issues.py new
+... --repo <name> --create` makes it with the first issue there, and rebuilds
+Start here. When you read
 a project README and find a line that is no longer true (a status, a "not built
 yet", a rule that has served its purpose), correct the facts and tell the user
 about the rules: rules are theirs to retire.

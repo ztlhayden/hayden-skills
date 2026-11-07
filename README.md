@@ -47,6 +47,16 @@ Install [Matt Pocock's skills](https://github.com/mattpocock/skills) too: these 
 
   `issues_repo` is the private GitHub repo whose issues are the tickets (usually the notes repo itself). `board` is an optional GitHub Project kept in step with the labels; its single-select fields Triage, Project, Org, Code repo and Status need an option for each value. `start_here` is an optional pinned issue that `issues.py start-here` rebuilds with one-tap searches, listing `goals`.
 - **`gh` logged in** with access to the issues repo (and `project` scope for a board). The scripts call it for everything.
+- **The helper allowed in Claude Code's settings**, so an unattended run can change its tickets without stopping for an approval. Every ticket change goes through `issues.py`, which only ever touches the issues repo, so allowing it is narrower than allowing `gh`. In `~/.claude/settings.json`:
+
+  ```json
+  "permissions": { "allow": [
+    "Bash(python3 ~/.claude/skills/project-notes/scripts/*)",
+    "Bash(python3 /home/<you>/.claude/skills/project-notes/scripts/*)"
+  ] }
+  ```
+
+  Link `scripts/issues.py` onto your `PATH` as `issues` to run it by hand, and allow `Bash(issues *)` too.
 - **The nightly snapshot Action**, optional: copy `templates/issues-snapshot.yml` to the notes repo's `.github/workflows/`. It checks out this repo to run `issues-snapshot.py` and commits `issues/snapshot.json`, a backup of every issue. Pin its `ref` to a commit SHA you have read.
 - **A `~/.claude/CLAUDE.md` that points at `project-notes`**, so Matt Pocock's skills (`/to-tickets`, `/triage`, `/implement`, `/domain-modeling`, `/wayfinder`) put tickets and decisions where these skills look. For example:
 

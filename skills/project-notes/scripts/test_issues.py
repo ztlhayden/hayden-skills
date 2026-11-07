@@ -50,8 +50,15 @@ def fake_gh(args: list[str]) -> None:
     a = args
     if a[:2] == ["issue", "list"]:
         want = opt("--state", "open")
+        words = (opt("--search") or "").lower().split()
         out = [render(int(k)) for k, v in sorted(st["issues"].items(), key=lambda kv: int(kv[0]))
-               if want == "all" or v["state"] == want.upper()]
+               if (want == "all" or v["state"] == want.upper()) and all(w in v["title"].lower() for w in words)]
+    elif a[:2] == ["issue", "create"]:
+        n = str(max(int(k) for k in st["issues"]) + 1)
+        labels = [v for k, v in zip(a, a[1:]) if k == "--label"]
+        st["issues"][n] = {"title": opt("--title"), "state": "OPEN", "labels": labels, "milestone": opt("--milestone"),
+                           "blockedBy": [], "body": Path(opt("--body-file")).read_text(), "comments": []}
+        print(REPO_URL + n)
     elif a[:2] == ["issue", "view"]:
         out = render(int(a[2]))
     elif a[:2] == ["issue", "edit"]:
@@ -63,6 +70,10 @@ def fake_gh(args: list[str]) -> None:
                 i["labels"].append(v)
             elif k == "--body-file":
                 i["body"] = Path(v).read_text()
+            elif k == "--add-blocked-by":
+                i.setdefault("blockedBy", []).append(int(v))
+            elif k == "--remove-blocked-by":
+                i["blockedBy"].remove(int(v))
     elif a[:2] == ["issue", "comment"]:
         st["issues"][a[2]].setdefault("comments", []).append(
             {"author": {"login": "maintainer"}, "createdAt": "2026-11-07T00:00:00Z", "body": Path(opt("--body-file")).read_text()})
@@ -70,6 +81,10 @@ def fake_gh(args: list[str]) -> None:
         st["issues"][a[2]].update(state="CLOSED", stateReason=opt("--reason").upper().replace(" ", "_"))
     elif a[:2] == ["label", "list"]:
         out = [{"name": l} for l in st["labels"]]
+    elif a[:2] == ["label", "create"]:
+        st["labels"].append(a[2])
+    elif a[0] == "api" and "-f" in a:
+        st["milestones"].append(opt("-f").split("=", 1)[1])
     elif a[0] == "api":
         out = [{"title": m} for m in st["milestones"]]
     elif a[:2] == ["project", "view"]:
@@ -324,6 +339,85 @@ class Issues(unittest.TestCase):
         before = len(edits)
         self.ok("board")
         self.assertEqual(len([c for c in self.st()["log"] if c[:2] == ["project", "item-edit"]]), before)  # in step
+
+    def fixed_labels(self):
+        st = self.st()
+        st["labels"] += ["type:task", "status:ready-for-agent", "status:needs-triage", "priority:now", "priority:soon"]
+        self.save(st)
+
+    def test_search(self):
+        out = self.ok("search", "loop")
+        self.assertEqual(out.splitlines(), ["#7 ready-for-agent soon [blog/comments]  Loop a",
+                                            "#8 ready-for-agent soon [blog/comments]  Loop b"])
+        self.assertIn("none", self.ok("search", "long ago"))
+        self.assertIn("#1 closed soon [shop/checkout]  Done long ago", self.ok("search", "--all", "long", "ago"))
+
+    def test_new_with_labels_milestone_blockers_and_board(self):
+        self.fixed_labels()
+        f = Path(self.tmp.name) / "b.md"
+        f.write_text("What to build.\n")
+        out = self.ok("new", "--title", "Add coupons", "--body-file", str(f), "--org", "acme", "--project", "shop",
+                      "--repo", "storefront", "--type", "task", "--status", "ready-for-agent", "--priority", "now",
+                      "--milestone", "shop/checkout", "--blocked-by", "2")
+        self.assertIn("created #11  Add coupons", out)
+        i = self.st()["issues"]["11"]
+        self.assertEqual(sorted(i["labels"]), ["org:acme", "priority:now", "project:shop", "repo:storefront",
+                                               "status:ready-for-agent", "type:task"])
+        self.assertEqual((i["milestone"], i["blockedBy"], i["body"]), ("shop/checkout", [2], "What to build.\n"))
+        self.assertEqual(self.st()["items"]["11"]["triage"], "ready-for-agent")
+        self.assertIn("#11 waits on #2 agent", out)
+        self.assertIn("! #2 is soon, below #11 (now) that waits on it", out)
+        self.assertNotIn("Start here", out)  # nothing new to link
+
+    def test_new_refuses_unknown_labels_unless_create(self):
+        self.fixed_labels()
+        f = Path(self.tmp.name) / "b.md"
+        f.write_text("x\n")
+        args = ["new", "--title", "Newsletter", "--body-file", str(f), "--org", "acme", "--project", "mail",
+                "--type", "task", "--status", "needs-triage", "--milestone", "mail/newsletter"]
+        r = self.run_cli(*args)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("project:mail", r.stderr)
+        self.assertIn("milestone mail/newsletter", r.stderr)
+        self.assertNotIn("11", self.st()["issues"])
+        out = self.ok(*args, "--create")
+        self.assertIn("created label project:mail", out)
+        self.assertIn("created milestone mail/newsletter", out)
+        self.assertIn("Start here updated", out)
+        self.assertEqual(self.st()["issues"]["11"]["labels"][1], "project:mail")
+        bad = [x if x != "needs-triage" else "in-progress-agent" for x in args]
+        self.assertIn("--status must be one of", self.run_cli(*bad).stderr)  # new issues aren't claimed
+
+    def test_block_and_unblock(self):
+        out = self.ok("block", "5", "2")
+        self.assertEqual(self.st()["issues"]["5"]["blockedBy"], [2])
+        self.assertIn("#5 blocked by #2", out)
+        self.assertIn("#5 waits on #2 agent", out)
+        out = self.ok("block", "--remove", "5", "2")
+        self.assertEqual(self.st()["issues"]["5"]["blockedBy"], [])
+        self.assertIn("#5 no longer blocked by #2", out)
+        self.assertIn("can't block itself", self.run_cli("block", "5", "5").stderr)
+
+    def test_status_at_triage(self):
+        out = self.ok("status", "10", "ready-for-human")
+        self.assertIn("#10 is now ready-for-human (was needs-triage)", out)
+        self.assertEqual([l for l in self.labels(10) if l.startswith("status:")], ["status:ready-for-human"])
+        self.assertIn("release it instead", self.run_cli("status", "9", "ready-for-agent").stderr)
+        self.assertIn("claim and release", self.run_cli("status", "10", "in-progress-agent").stderr)
+        self.assertIn("is closed", self.run_cli("status", "1", "ready-for-agent").stderr)
+
+    def test_priority_swaps_label_and_reports(self):
+        f = Path(self.tmp.name) / "c.md"
+        f.write_text("Blocks #4, which is now.\n")
+        out = self.ok("priority", "3", "now", "--comment-file", str(f))
+        self.assertIn("#3 is now now", out)
+        self.assertIn("priority:now", self.labels(3))
+        self.assertNotIn("priority:soon", self.labels(3))
+        self.assertEqual(self.st()["issues"]["3"]["comments"][-1]["body"], "Blocks #4, which is now.\n")
+        self.assertIn("! #2 is soon, below #3 (now)", out)
+        self.assertIn("already now", self.ok("priority", "3", "now"))
+        self.ok("priority", "3", "later")
+        self.assertFalse([l for l in self.labels(3) if l.startswith("priority:")])
 
     def test_start_here_rebuilds_from_labels_milestones_and_goals(self):
         self.assertIn("Start here updated", self.ok("start-here"))

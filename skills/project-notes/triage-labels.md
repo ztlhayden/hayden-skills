@@ -1,8 +1,8 @@
 # Triage labels
 
 A ticket's triage state is its `status:` label on the issue: exactly one per
-open issue. `issues.py claim`, `release` and `close` change it; otherwise swap
-it with `gh issue edit --remove-label --add-label`, then `issues.py board <n>`.
+open issue. `issues.py claim`, `release` and `close` change it; at triage, `issues.py
+status <n> <status>` (it keeps the board in step).
 
 The five roles on the left are the ones Matt Pocock's skills speak in; this
 table is the mapping his `setup-matt-pocock-skills` template asks for.

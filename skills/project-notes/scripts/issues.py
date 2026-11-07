@@ -11,6 +11,13 @@ Usage:
   python3 issues.py release N STATUS [--comment-file FILE]
   python3 issues.py comment N --comment-file FILE
   python3 issues.py close N (--completed | --not-planned) --comment-file FILE
+  python3 issues.py search [--all] WORDS...
+  python3 issues.py new --title T --body-file F --org O --project P --type T --status S
+                        --milestone M [--repo R]... [--priority now|soon] [--blocked-by N]...
+                        [--create [--milestone-description D]]
+  python3 issues.py block [--remove] N BLOCKER...
+  python3 issues.py status N STATUS [--comment-file FILE]
+  python3 issues.py priority N (now | soon | later) [--comment-file FILE]
   python3 issues.py board [N...]
   python3 issues.py start-here [--dry-run]
 
@@ -50,6 +57,23 @@ issue they change; board does it for the issues named, or for every
 labelled issue. The board's single-select fields Triage, Project, Org and
 Code repo copy the status:, project:, org: and repo: labels, and its Status
 field is Todo, In Progress or Done.
+
+search prints the issues matching GitHub search WORDS, open ones (--all
+adds closed), one line each: `#12 ready-for-agent soon [shop/checkout]
+Title`. new creates an issue with every label group and its milestone,
+adds its blockers, syncs the board and reports any blocker below its
+priority; it refuses a label or milestone the repo doesn't have unless
+--create, which makes the missing org:, project:, repo: or type: labels and
+the milestone, then rebuilds Start here. block adds (--remove: removes)
+*blocked by* links and reports what N now waits on and any blocker below
+its priority: raise that blocker's priority, with a comment saying why.
+status sets a status label at triage (not an in-progress one: claim and
+release do those), posting FILE first if given, and syncs the board.
+priority sets priority:now or priority:soon in place of the old one (later
+removes it), posting FILE first if given, and reports the same findings.
+
+Together these cover every ticket change an unattended run makes, so a run
+never needs raw gh on the issues repo.
 
 start-here rebuilds the pinned Start here issue from the org:, project:
 and repo: labels, the open milestones and the config's goals (start_here.py
@@ -307,6 +331,124 @@ def cmd_list(a) -> None:
         by = [b for b, s in i["blockers"] if s == "OPEN"]
         blocked = (" blocked-by " + ",".join(f"#{b}" for b in by)) if by else ""
         print(f"#{n} {status(i) or 'no-status'} {priority(i)}{blocked}  {i['title']}")
+
+
+def cmd_search(a) -> None:
+    state = "all" if a.all else "open"
+    raws = gh_json("issue", "list", "-R", REPO, "--state", state, "--limit", "50", "--search", " ".join(a.words),
+                   "--json", LIST_FIELDS)
+    for i in sorted((issue(r) for r in raws), key=lambda i: i["number"]):
+        st = (status(i) or "no-status") if i["state"] == "OPEN" else "closed"
+        m = f" [{i['milestone']}]" if i["milestone"] else ""
+        print(f"#{i['number']} {st} {priority(i)}{m}  {i['title']}")
+    if not raws:
+        print("none")
+
+
+LABEL_COLORS = {"org": "5319e7", "project": "0e8a16", "repo": "c5def5", "type": "bfdadc",
+                "status": "fbca04", "priority": "d93f0b"}
+
+
+def blocker_findings(n: int) -> None:
+    """After a blocker change: what n waits on, and any blocker below its priority."""
+    issues = load_open()
+    g = Blockers(issues)
+    if g.open_blockers(n):
+        print(f"#{n} waits on {g.waits(n)}")
+    for p in g.problems({n} | g.reach(n)):
+        print(p)
+
+
+def cmd_new(a) -> None:
+    if not os.path.isfile(a.body_file):
+        sys.exit(f"No such file: {a.body_file}")
+    if a.status not in STATUSES or a.status in IN_PROGRESS:
+        sys.exit(f"--status must be one of {', '.join(s for s in STATUSES if s not in IN_PROGRESS)}")
+    labels = [f"org:{a.org}", f"project:{a.project}", f"type:{a.type}", f"status:{a.status}"]
+    labels += [f"repo:{r}" for r in a.repo]
+    if a.priority:
+        labels.append(f"priority:{a.priority}")
+    have = {l["name"] for l in gh_json("label", "list", "-R", REPO, "--limit", "500", "--json", "name")}
+    missing = [l for l in labels if l not in have]
+    titles = {m["title"] for m in gh_json("api", f"repos/{REPO}/milestones?state=all&per_page=100")}
+    new_milestone = a.milestone not in titles
+    if (missing or new_milestone) and not a.create:
+        what = missing + ([f"milestone {a.milestone}"] if new_milestone else [])
+        sys.exit("Not on the repo yet: " + ", ".join(what) + ". Check the spelling; for a new project, repo, "
+                 "type or feature, run again with --create.")
+    for l in missing:
+        g, _, v = l.partition(":")
+        if g in ("status", "priority"):
+            sys.exit(f"No label {l}: the status and priority labels are fixed")
+        gh("label", "create", l, "-R", REPO, "--color", LABEL_COLORS[g], "--description",
+           {"org": f"Work for {v} on GitHub", "project": f"Notes folder: {v}", "repo": f"Code lands in {v}",
+            "type": v}[g])
+        print(f"created label {l}")
+    if new_milestone:
+        gh("api", f"repos/{REPO}/milestones", "-f", f"title={a.milestone}", "-f",
+           f"description={a.milestone_description or ''}")
+        print(f"created milestone {a.milestone}")
+    args = ["issue", "create", "-R", REPO, "--title", a.title, "--body-file", a.body_file, "--milestone", a.milestone]
+    for l in labels:
+        args += ["--label", l]
+    n = int(gh(*args).rstrip("/").rsplit("/", 1)[1])
+    for b in a.blocked_by:
+        gh("issue", "edit", str(n), "-R", REPO, "--add-blocked-by", str(b))
+    if BOARD is not None:
+        sync_board([n])
+    print(f"created #{n}  {a.title}")
+    if a.blocked_by:
+        blocker_findings(n)
+    if (missing or new_milestone) and START_HERE is not None:
+        cmd_start_here(argparse.Namespace(dry_run=False))
+
+
+def cmd_block(a) -> None:
+    flag = "--remove-blocked-by" if a.remove else "--add-blocked-by"
+    for b in a.blockers:
+        if b == a.n:
+            sys.exit(f"#{a.n} can't block itself")
+        gh("issue", "edit", str(a.n), "-R", REPO, flag, str(b))
+    names = ", ".join(f"#{b}" for b in a.blockers)
+    print(f"#{a.n} no longer blocked by {names}" if a.remove else f"#{a.n} blocked by {names}")
+    blocker_findings(a.n)
+
+
+def cmd_status(a) -> None:
+    new = a.status.removeprefix("status:")
+    if new not in STATUSES or new in IN_PROGRESS:
+        sys.exit(f"STATUS must be one of {', '.join(s for s in STATUSES if s not in IN_PROGRESS)} "
+                 "(claim and release handle in-progress)")
+    i = view(a.n)
+    if i["state"] != "OPEN":
+        sys.exit(f"#{a.n} is closed")
+    if status(i) in IN_PROGRESS:
+        sys.exit(f"#{a.n} is {status(i)}; release it instead, or leave it alone")
+    if a.comment_file:
+        post_comment(a.n, a.comment_file)
+    set_status(a.n, [l for l in i["labels"] if l.startswith("status:")], new)
+    if BOARD is not None:
+        sync_board([a.n])
+    print(f"#{a.n} is now {new} (was {status(i) or 'no-status'})")
+
+
+def cmd_priority(a) -> None:
+    i = view(a.n)
+    old = [l for l in i["labels"] if l.startswith("priority:")]
+    want = [] if a.priority == "later" else [f"priority:{a.priority}"]
+    if old == want:
+        print(f"#{a.n} is already {priority(i)}")
+        return
+    if a.comment_file:
+        post_comment(a.n, a.comment_file)
+    args = ["issue", "edit", str(a.n), "-R", REPO]
+    for l in old:
+        args += ["--remove-label", l]
+    for l in want:
+        args += ["--add-label", l]
+    gh(*args)
+    print(f"#{a.n} is now {a.priority}")
+    blocker_findings(a.n)
 
 
 def cmd_show(a) -> None:
@@ -567,6 +709,23 @@ def main() -> None:
     r = s.add_mutually_exclusive_group(required=True)
     r.add_argument("--completed", action="store_true"); r.add_argument("--not-planned", action="store_true")
     s.add_argument("--comment-file", required=True); s.set_defaults(f=cmd_close)
+    s = sub.add_parser("search"); s.add_argument("--all", action="store_true"); s.add_argument("words", nargs="+")
+    s.set_defaults(f=cmd_search)
+    s = sub.add_parser("new")
+    for flag in ("--title", "--body-file", "--org", "--project", "--type", "--status", "--milestone"):
+        s.add_argument(flag, required=True)
+    s.add_argument("--repo", action="append", default=[], help="repeat for each; leave out for none")
+    s.add_argument("--priority", choices=["now", "soon"])
+    s.add_argument("--blocked-by", type=int, action="append", default=[])
+    s.add_argument("--create", action="store_true", help="create missing org/project/repo/type labels and the milestone")
+    s.add_argument("--milestone-description")
+    s.set_defaults(f=cmd_new)
+    s = sub.add_parser("status"); s.add_argument("n", type=int); s.add_argument("status")
+    s.add_argument("--comment-file"); s.set_defaults(f=cmd_status)
+    s = sub.add_parser("priority"); s.add_argument("n", type=int); s.add_argument("priority", choices=["now", "soon", "later"])
+    s.add_argument("--comment-file"); s.set_defaults(f=cmd_priority)
+    s = sub.add_parser("block"); s.add_argument("--remove", action="store_true"); s.add_argument("n", type=int)
+    s.add_argument("blockers", type=int, nargs="+"); s.set_defaults(f=cmd_block)
     s = sub.add_parser("board"); s.add_argument("n", type=int, nargs="*"); s.set_defaults(f=cmd_board)
     s = sub.add_parser("start-here"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(f=cmd_start_here)
     a = p.parse_args()

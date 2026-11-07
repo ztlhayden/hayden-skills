@@ -38,8 +38,8 @@ Below, `<repo>` is `issues_repo`.
 `python3 ~/.claude/skills/project-notes/scripts/issues.py <command>` (from
 any folder; called `issues.py` below) does the common jobs in a few lines of
 output; `--help` gives each command's arguments. Use it wherever it has a
-command, and raw `gh` for the rest (creating issues, label edits, blockers,
-milestones, searches).
+command; raw `gh` only for what it doesn't do (a milestone's due date, moving
+an issue to another milestone, editing a body).
 
 - `survey [<milestone>]`: one line per milestone with its count of each status
   and priority, the issues an agent can start, and any blocker problems.
@@ -55,6 +55,11 @@ milestones, searches).
   --completed|--not-planned --comment-file <file>`: see below. All three keep
   the board in step.
 - `comment <n> --comment-file <file>`: post a comment.
+- `search [--all] <words>`: matching issues, one line each.
+- `new ...`: create an issue with every label group, its milestone and its
+  blockers (see New issues).
+- `status <n> <status>`, `priority <n> now|soon|later`, `block [--remove] <n>
+  <blocker>...`: triage changes, each with an optional `--comment-file`.
 - `board [<n>...]`: copy labels onto the board, for issues changed with raw
   `gh`.
 - `start-here [--dry-run]`: rebuild Start here from the labels, milestones
@@ -89,33 +94,38 @@ Tests: `python3 test_issues.py` in the scripts folder.
   comment saying what was built, where (commits, branch), how it was checked,
   and anything the maintainer should know. It says which issues that
   unblocks.
-- **Change one thing at a time:** `gh issue edit <n> -R <repo>` with
-  `--add-label` / `--remove-label` for status, `--add-blocked-by <m>` for a
-  blocker, `--milestone` for the feature; `issues.py comment <n>
-  --comment-file <file>` for a comment. Then `issues.py board <n>` after a
-  label change. Edit the one line that changes, keeping the rest of the body
-  as it is.
+- **Change one thing at a time,** through the helper: `issues.py status <n>
+  <status>` at triage, `priority <n> now|soon|later`, `block [--remove] <n>
+  <blocker>...`, `comment <n> --comment-file <file>` (each takes
+  `--comment-file` to say why). They keep the board in step and report any
+  blocker below the issue's priority. Every ticket change an unattended run
+  makes goes through them, so a run never stops for an approval. Raw `gh` is
+  only for what they don't do (moving an issue to another milestone, editing
+  a body: change the one line, keeping the rest as it is).
 - **Your comments don't notify the maintainer** when agents act as the
   maintainer's account: GitHub notifies no one of their own actions. So a
   question for them also sets `status:ready-for-human`, which puts it in
   Start here's "Needs me"; in a live session, say it there too.
-- **Search** with `gh issue list -R <repo> --search '<query>' --json
-  number,title,labels,milestone`, asking only for the fields you need.
+- **Search** with `issues.py search [--all] <words>`: one line per match,
+  open only unless `--all`.
 - Shared text (commits, PRs, code) leaves these issues unnamed: the people
   who read it can't see them.
 
 ## New issues
 
-- **From an agent:** `gh issue create -R <repo> --title ... --body-file
-  <file> --label <all four groups and type> --milestone <feature>`
-  (`--blocked-by <n>` for blockers), then `issues.py board <n>`.
+- **From an agent:** `issues.py new --title ... --body-file <file> --org <o>
+  --project <p> [--repo <r>]... --type <t> --status <s> [--priority now|soon]
+  --milestone <project>/<feature> [--blocked-by <n>]...`. It refuses a label or
+  milestone the repo doesn't have, so a typo can't make one; for a new
+  project, repo, type or feature add `--create` (and
+  `--milestone-description <spec link>`), which makes them and rebuilds
+  Start here.
 - **From a form** (an issue template in the notes repo, for the phone, say):
   it applies only `status:needs-triage`, and its answers sit in the body.
   Triage reads them, then adds the label groups and milestone.
-- **A new milestone:** `gh api repos/<repo>/milestones -f
-  title=<project>/<feature> -f description=<spec link>` (`-f due_on=<date>`
-  for a deadline). A new project or repo label: `gh label create`. Either way,
-  run `issues.py start-here` so Start here links it.
+- **A deadline** is the milestone's due date: `gh api -X PATCH
+  repos/<repo>/milestones/<number> -f due_on=<date>T00:00:00Z` (raw `gh`, so
+  it asks; deadlines are set at triage, with the maintainer).
 
 ## Triage and priority
 
