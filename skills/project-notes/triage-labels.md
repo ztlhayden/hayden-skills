@@ -1,26 +1,41 @@
 # Triage labels
 
-Tickets are local files, so a label is the value of the ticket's `Status:`
-line.
+A ticket's triage state is its `status:` label on the issue: exactly one per
+open issue. `issues.py claim`, `release` and `close` change it; otherwise swap
+it with `gh issue edit --remove-label --add-label`, then `issues.py board <n>`.
 
-| Role in the skills | Status value      | Meaning                                  |
-| ------------------ | ----------------- | ---------------------------------------- |
-| `needs-triage`     | `needs-triage`    | Maintainer needs to evaluate this ticket |
-| `needs-info`       | `needs-info`      | Waiting for more information             |
-| `ready-for-agent`  | `ready-for-agent` | Fully specified, ready for an AFK agent  |
-| `ready-for-human`  | `ready-for-human` | Needs a person to do it                  |
-| `wontfix`          | `wontfix`         | Will not be done                         |
-| —                  | `blocked`         | Specified, waiting on its `Blocked by:` tickets |
-| —                  | `resolved`        | Done                                     |
+The five roles on the left are the ones Matt Pocock's skills speak in; this
+table is the mapping his `setup-matt-pocock-skills` template asks for.
 
-`blocked` and `resolved` are this tracker's own states, outside the skills'
-roles:
+| Role in the skills | Label                      | Meaning                                  |
+| ------------------ | -------------------------- | ---------------------------------------- |
+| `needs-triage`     | `status:needs-triage`      | Maintainer needs to evaluate this ticket |
+| `needs-info`       | `status:needs-info`        | Waiting for more information             |
+| `ready-for-agent`  | `status:ready-for-agent`   | Fully specified, ready for an AFK agent  |
+| `ready-for-human`  | `status:ready-for-human`   | Needs a person to do it                  |
+| `wontfix`          | closed as not planned      | Will not be done                         |
+| —                  | `status:in-progress-agent` | An agent is working on it                |
+| —                  | `status:in-progress-me`    | The maintainer is working on it          |
+| —                  | *blocked by* link          | Specified, waiting on other issues       |
+| —                  | closed as completed        | Done                                     |
 
-- **blocked**: a ticket starts `blocked` when any ticket in its `Blocked by:`
-  line is open (the default for `/to-tickets` output with blockers). Once
-  every blocker is `resolved`, move it to `ready-for-agent` or
-  `ready-for-human`; it was specified already, so it skips triage.
-- **resolved**: the work is done or the decision recorded. Add where it
-  landed after a dash: `resolved — merged to main, PR Org/repo#12`.
+Outside the skills' roles:
+
+- **In progress** replaces the ready label while the work runs; the issue
+  goes back to the status the work left it in. Leave an issue already in
+  progress alone.
+- **Blocked** is not a status. Give a blocked issue the status it takes once
+  unblocked; it was specified already, so it skips triage when its blockers
+  close.
+- **Done**: the closing comment says where the work landed (branch, commits,
+  PR `owner/repo#12`).
 - A ticket whose work is built but waits on the user's decision or marks is
   `ready-for-human`.
+
+## Markdown tickets
+
+Markdown tickets (archived features, and any not yet moved) keep the state as
+a `Status:` line's value: the same roles without the `status:` prefix, plus
+`blocked` (any ticket in its `Blocked by:` line is open) and `resolved` (done,
+with where it landed after a dash: `resolved — merged to main, PR
+owner/repo#12`).

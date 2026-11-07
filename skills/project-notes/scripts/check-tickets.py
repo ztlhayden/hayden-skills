@@ -11,8 +11,8 @@ found on either side.
 
 Exits 1 when a ticket has a problem. --ready skips the problems and prints
 only the tickets ready to work. --summary prints one line per feature with
-its count of each status, and marks features whose tickets are all closed. FOLDER (such as
-docker-infrastructure/tickets/backups) limits the output and the exit code to
+its count of each status, and marks features whose tickets are all closed.
+FOLDER (such as shop/tickets/checkout) limits the output and the exit code to
 tickets under it, and lists each of them with its status; blockers are still
 resolved across the whole repo.
 """

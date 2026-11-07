@@ -1,107 +1,225 @@
-# Issue tracker: local markdown in the notes repo
+# Issue tracker: GitHub issues on the notes repo
 
-Tickets for every project live as markdown files in the notes repo,
-`~/code/ai-notes`, which is pushed to a private GitHub repo. Never in a code
-repo: several are public, and tickets may carry private detail.
+Tickets for every project are GitHub issues on the **issues repo**: the private
+repo named by `issues_repo` in the notes repo's `project-notes.json` (see
+[The config](#the-config)), normally the notes repo itself. Never in a code
+repo: several may be public, and tickets may carry private detail. Specs, maps,
+glossaries and decisions stay files in the notes repo. Start from the pinned
+**Start here** issue (`start_here` in the config), which links a search for
+each view. The repo is private: read it with `gh` or the helper, never by
+fetching a link.
 
-The scripts named below are in `~/.claude/skills/project-notes/scripts/`: run
-them as `python3 ~/.claude/skills/project-notes/scripts/<script>`, from any
-folder. They read the notes repo from `$NOTES_ROOT`, or `~/code/ai-notes` when
-that is unset, and take ticket and folder paths relative to it.
+Issues are the tracker for agent work in every project, including ones that
+also have a card in another tracker (Jira, say). Agents change that other
+tracker only when the user asks in that session.
 
-## Where
+This file is the issue-tracker config that Matt Pocock's skills read; its
+shape (the "When a skill says" and Wayfinding sections) follows his
+`setup-matt-pocock-skills` templates.
 
-`~/code/ai-notes/<project>/tickets/<feature-slug>/`, where `<project>` is the
-project's notes folder (see `domain.md` for which one).
+## The config
 
-Local tickets are the tracker for agent work in every project, including
-ones that also have a Jira card. Agents change Jira only when the user asks
-in that session.
+`$NOTES_ROOT/project-notes.json` (`NOTES_ROOT` defaults to `~/code/ai-notes`):
 
-## Conventions
+```json
+{"issues_repo": "acme/notes",
+ "board": {"owner": "acme", "number": 3},
+ "start_here": 1,
+ "goals": [{"text": "Ship checkout"}, {"text": "Move to issues", "milestone": "shop/issues"}]}
+```
 
-- One feature per directory. The spec is `spec.md` in it.
-- One file per ticket at `issues/<NN>-<slug>.md`, numbered from `01`; never one
-  combined tickets file.
-- A closed ticket (`resolved` or `wontfix`) moves to `issues/archive/`, so a
-  feature's `issues/` holds only open work. `ticket.py set-status` and
-  `resolve` make the move (and move a reopened ticket back) and fix every
-  path to it; `ticket.py archive [<folder>]` sweeps a folder. `Blocked by:`
-  numbers still find a ticket in `archive/`. The checker reports a ticket on
-  the wrong side.
-- A `Status:` line near the top records triage state (see `triage-labels.md`).
-  Building agents (`/implement`, `/implement-spec`) take only
-  `ready-for-agent` tickets whose blockers are resolved; `ready-for-human`
-  tickets stay with the user.
-- `check-tickets.py` checks every ticket's `Status:` and
-  `Blocked by:` lines and lists the tickets ready to work. The notes repo's
-  pre-commit hook runs it: `scripts/pre-commit` here is that hook, and the
-  notes repo's own `.githooks/pre-commit` calls it (a fresh clone turns it on
-  with `git config core.hooksPath .githooks`); `--ready` prints only the list.
-  After writing or changing one feature's tickets, pass its folder
-  (`check-tickets.py <project>/tickets/<feature>`) to see only those, each
-  with its status. `--summary` prints one line per feature with its count of
-  each status, and marks features ready to archive.
-- `ticket.py show <ticket or feature folder>` prints tickets
-  with all but the last comment hidden, and says how many it hid. Use it to
-  survey tickets (triage, picking what's ready, checking where a feature
-  stands). Before working on a ticket, read the whole file: comments hold
-  open questions, branches and handoff notes. `show` prints every comment
-  when the `Status:` line mentions them, or with `--all`.
-- `ticket.py refs <ticket or feature folder>` lists the
-  tickets it blocks and the lines elsewhere that link to it by path. It
-  misses prose mentions such as "identity facility-positions 01".
-- `ticket.py set-status <ticket> "<status text>"` replaces
-  the `Status:` line's value. `ticket.py resolve <ticket> --status "<text>"
-  [--comment "<text>" | --comment-file <path>] [--tick]` also ticks every
-  `- [ ]` box with `--tick` and appends the comment under `## Comments`.
-  Both leave the rest of the file as it was; use them rather than Edit to
-  close a ticket. When the ticket moves, they print its new path and every
-  file whose paths they fixed: stage all of them. Tests: `test_ticket.py`.
-- In a project with more than one repo, a `Repo:` line beside `Blocked by:`
-  names the repo or repos the ticket changes, as the project's repo map names
-  them (see `repo-map.md`).
-- Comments append to the bottom under a `## Comments` heading.
-- Once every ticket in a feature is `resolved` or `wontfix`, move the whole
-  feature folder to `<project>/tickets/archive/<feature-slug>/` with `git mv`.
-  Then add one `../` to each link in it that leaves the folder, and point
-  links elsewhere (including `Blocked by:` lines) at the new path. The
-  checker still reads archived tickets, so those blockers count as closed.
-- A ticket turns `ready-for-agent` only after passing `ticket-checklist.md`:
-  the gaps that stop an unattended developer, one line each.
-- After writing or changing tickets, commit and push the notes repo straight
-  to `main`.
+Only `issues_repo` is required. Without `board`, nothing syncs a board; without
+`start_here`, there is no Start here issue to rebuild. `goals` are the current
+goals Start here lists (three or four), each optionally tied to a milestone.
+Below, `<repo>` is `issues_repo`.
 
-## Writing tickets with `/to-tickets`
+## The helper
 
-Only the user can start `/to-tickets`; an agent can't load it. When the
-user asks for tickets by that name, ask them to type `/to-tickets`. Its
-template puts tickets under `.scratch/` with a bold `**Status:**`; here they
-go in `tickets/<feature-slug>/` with the plain `Status:` line above.
+`python3 ~/.claude/skills/project-notes/scripts/issues.py <command>` (from
+any folder; called `issues.py` below) does the common jobs in a few lines of
+output; `--help` gives each command's arguments. Use it wherever it has a
+command, and raw `gh` for the rest (creating issues, label edits, blockers,
+milestones, searches).
 
-## When a skill says "publish to the issue tracker"
+- `survey [<milestone>]`: one line per milestone with its count of each status
+  and priority, the issues an agent can start, and any blocker problems.
+  Start a survey here instead of reading issues.
+- `list <milestone>`: every open issue in it, one line each, with its open
+  blockers.
+- `show <n>`: an issue with all but its last comment folded, for surveys.
+  Before working on an issue, read it whole with `show --all <n>`: comments
+  hold open questions, branches and handoff notes.
+- `chain <n>` walks an issue's *blocked by* links to the end; `check` does it
+  for every open issue and says when Start here is out of date.
+- `claim <n>`, `release <n> <status> [--comment-file <file>]`, `close <n>
+  --completed|--not-planned --comment-file <file>`: see below. All three keep
+  the board in step.
+- `comment <n> --comment-file <file>`: post a comment.
+- `board [<n>...]`: copy labels onto the board, for issues changed with raw
+  `gh`.
+- `start-here [--dry-run]`: rebuild Start here from the labels, milestones
+  and goals, after adding a project, repo, milestone or goal.
 
-Create a file under the right `tickets/<feature-slug>/` folder, creating it if
-needed.
+Tests: `python3 test_issues.py` in the scripts folder.
 
-## When a skill says "fetch the relevant ticket"
+## Milestones and labels
 
-Read the file at the referenced path. The user normally passes the path or the
-ticket number.
+- **A feature is a milestone** named `<project>/<feature>`, whose description
+  links its spec at `<project>/tickets/<feature>/spec.md` in the notes repo. A
+  deadline is the milestone's due date.
+- **Labels**, four groups on every issue: `org:` (the GitHub owner the work
+  is for), `project:` (the notes folder), `repo:` (where the code lands, its
+  GitHub name without the owner; one or more), `status:` (see
+  `triage-labels.md`). Plus `type:` (`task`, `grilling`, `prototype`,
+  `research`) and, once triaged, a priority.
+- **Blocked** is GitHub's own *blocked by* link, not a label: give a blocked
+  issue the status it takes once unblocked. Only open blockers count. **Done**
+  is closed as completed; **wontfix** is closed as not planned.
+
+## Working an issue
+
+- **Claim** with `issues.py claim <n>` before any work: it sets
+  `status:in-progress-agent` in place of the ready label, and refuses an issue
+  already `in-progress-agent` or `in-progress-me` (the maintainer's), a closed
+  one, and one with an open blocker. Leave an in-progress issue alone.
+- **Stop** with `issues.py release <n> <status> --comment-file <file>`,
+  setting the status the work left it in, with a comment saying where it got
+  to.
+- **Finish** with `issues.py close <n> --completed --comment-file <file>`: one
+  comment saying what was built, where (commits, branch), how it was checked,
+  and anything the maintainer should know. It says which issues that
+  unblocks.
+- **Change one thing at a time:** `gh issue edit <n> -R <repo>` with
+  `--add-label` / `--remove-label` for status, `--add-blocked-by <m>` for a
+  blocker, `--milestone` for the feature; `issues.py comment <n>
+  --comment-file <file>` for a comment. Then `issues.py board <n>` after a
+  label change. Edit the one line that changes, keeping the rest of the body
+  as it is.
+- **Your comments don't notify the maintainer** when agents act as the
+  maintainer's account: GitHub notifies no one of their own actions. So a
+  question for them also sets `status:ready-for-human`, which puts it in
+  Start here's "Needs me"; in a live session, say it there too.
+- **Search** with `gh issue list -R <repo> --search '<query>' --json
+  number,title,labels,milestone`, asking only for the fields you need.
+- Shared text (commits, PRs, code) leaves these issues unnamed: the people
+  who read it can't see them.
+
+## New issues
+
+- **From an agent:** `gh issue create -R <repo> --title ... --body-file
+  <file> --label <all four groups and type> --milestone <feature>`
+  (`--blocked-by <n>` for blockers), then `issues.py board <n>`.
+- **From a form** (an issue template in the notes repo, for the phone, say):
+  it applies only `status:needs-triage`, and its answers sit in the body.
+  Triage reads them, then adds the label groups and milestone.
+- **A new milestone:** `gh api repos/<repo>/milestones -f
+  title=<project>/<feature> -f description=<spec link>` (`-f due_on=<date>`
+  for a deadline). A new project or repo label: `gh label create`. Either way,
+  run `issues.py start-here` so Start here links it.
+
+## Triage and priority
+
+**Priority** is `priority:now`, `priority:soon`, or no label (later, by
+decision). It is always set at triage, so a triaged issue with no priority
+label is later, and one still `status:needs-triage` is not assessed yet.
+
+**Triage asks the maintainer, on the issue.** Comment with the triage
+questions and these six, answered as far as you can with evidence (read the
+code, the live site, the data) and a suggested status and priority; ask them
+to confirm, so they can answer from their phone. The next agent applies the
+answer. In a live session, ask the same as a round instead.
+
+1. Is there a deadline? (Within about two weeks: `now`; later: `soon`, and the
+   date goes on the milestone's due date.)
+2. Does it block another team member? (`now`)
+3. Does it break a feature users actively rely on? (`now`)
+4. Is it an open broken promise? (`now`)
+5. Is it a privacy or security issue? (`now`, whatever else is true)
+6. If none of these: does it move one of the current goals forward?
+   (`soon`; otherwise no label)
+
+## Blockers
+
+- **Priority and blocked are separate.** A blocked issue keeps its priority;
+  Start here's working lists ("Now", "Soon") hide blocked issues, and
+  "Blocked and urgent" shows them.
+- **A blocker's priority is at least the highest priority of what it
+  blocks.** Whenever you set or raise a priority, run `issues.py chain <n>`
+  and raise any blocker it reports below the issue, with a comment saying why.
+- **Every helper probes blockers.** Any script, skill or run tool built for
+  these issues walks the whole *blocked by* chain, not one step, and reports:
+  blockers with a lower priority than what waits on them, cycles, and for
+  each blocked issue what it ultimately waits on and whether that is a person
+  (`ready-for-human`) or an agent's work. An issue whose blockers are all
+  closed is unblocked (GitHub keeps closed blockers on the link; its
+  `is:blocked` ignores them). `issues.py chain` and `check` are the model.
+
+## The board and the snapshot
+
+- **The board** (`board` in the config, a GitHub Project) holds every
+  labelled issue; its single-select fields Triage, Project, Org and Code repo
+  copy the labels, and Status is Todo, In Progress or Done. `claim`,
+  `release` and `close` keep it in step; after any other label change, run
+  `issues.py board <n>`. A `!` line means the board has no option for that
+  label yet: add it on the board.
+- **The snapshot** `issues/snapshot.json` in the notes repo holds every issue
+  (comments, labels, milestone, blockers), written nightly by the "Issues
+  snapshot" Action (`templates/issues-snapshot.yml` in the skills repo). It is
+  for offline reading and recovery only: normal work reads the issues with
+  `gh`.
+
+## When a skill says...
+
+- **"publish to the issue tracker"**: create an issue as in
+  [New issues](#new-issues), in the feature's milestone.
+- **"fetch the relevant ticket"**: `issues.py show --all <n>`. The user
+  normally passes the number or link.
+- **`/to-tickets`**: only the user can start it; an agent can't load it. When
+  the user asks for tickets by that name, ask them to type `/to-tickets`. Its
+  output becomes issues in the feature's milestone, its blockers *blocked by*
+  links, and its status labels.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`, inside the same `tickets/<effort>/` folder:
+Used by `/wayfinder`, for one effort's milestone:
 
-- **Map**: `map.md` (Notes / Decisions so far / Fog).
-- **Child ticket**: `issues/NN-<slug>.md` with the question in the body, a
-  `Type:` line (`research`/`prototype`/`grilling`/`task`) and a `Status:` line
-  (`claimed`/`resolved`).
-- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked
-  when every file it lists is `resolved`.
-- **Frontier**: open, unblocked, unclaimed files in `issues/`; lowest number
-  first.
-- **Claim**: set `Status: claimed` and save before any work.
-- **Resolve**: append the answer under `## Answer`, set the status with
-  `ticket.py set-status <ticket> resolved` (it moves the file to
-  `issues/archive/`), and add a one-line pointer to `map.md`'s Decisions so far.
+- **Map**: `map.md` (Notes / Decisions so far / Fog), a file in
+  `<project>/tickets/<effort>/` beside the spec.
+- **Child ticket**: an issue in the milestone with the question in the body
+  and its `type:` label.
+- **Blocking**: *blocked by* links. A ticket is unblocked when every blocker
+  is closed as completed.
+- **Frontier**: `issues.py survey <milestone>`'s startable list; lowest
+  number first.
+- **Claim**: `issues.py claim <n>` before any work.
+- **Resolve**: the answer as the closing comment (`issues.py close <n>
+  --completed --comment-file <file>`), and a one-line pointer in `map.md`'s
+  Decisions so far.
+
+## Markdown tickets
+
+Before issues, tickets were markdown files, and archived features keep them:
+`<project>/tickets/<feature>/issues/<NN>-<slug>.md` beside `spec.md`, with a
+`Status:` line (see `triage-labels.md`), a `Blocked by: NN, NN` line, a
+`Repo:` line, and comments under `## Comments`; closed ones in
+`issues/archive/`, finished features under `<project>/tickets/archive/`.
+`check-tickets.py --summary` lists the features that still have them;
+`ticket.py show|refs` reads them. A feature folder holding only its `spec.md`
+(and `map.md`) has moved: its tickets are issues in its milestone.
+
+**Moving them** is `migrate-issues.py`, every project at once:
+
+1. `migrate-issues.py --dry-run <out>` (`--include-archived` for finished
+   features too) changes nothing on GitHub and writes `<out>/report.md`
+   (counts, labels and milestones to create, unresolved links, unmapped
+   statuses) and one file per ticket as it would be posted.
+2. Settle what the report asks in a decisions file (the script's
+   docstring lists its keys), and dry-run again until the report is clean.
+3. `migrate-issues.py --run <out> --decisions <file>` moves them; a stopped
+   run resumes when run again.
+4. Remove the moved ticket files, fix the links the report lists, add any new
+   options to the board's fields, then `issues.py board` and
+   `issues.py start-here`.
+
+After changing anything in the notes repo, commit and push it straight to
+`main`.
