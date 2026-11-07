@@ -1,0 +1,58 @@
+# Copy to the notes repo as .github/workflows/issues-snapshot.yml.
+#
+# Nightly backup of every issue into issues/snapshot.json, committed only
+# when it changed. Its commit is made with GITHUB_TOKEN, which never starts
+# a workflow, and this workflow has no push trigger, so it can't loop.
+#
+# It runs issues-snapshot.py from the public hayden-skills repo, checked out
+# beside the notes. That code runs with this repo's write token, so pin `ref`
+# to a commit SHA you have read, and move it on when you update the skills.
+name: Issues snapshot
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # 07:17 UTC, off the top of the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+concurrency:
+  group: issues-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the skills
+        uses: actions/checkout@v4
+        with:
+          repository: ztlhayden/hayden-skills
+          ref: main # better: a commit SHA
+          path: .skills
+          persist-credentials: false
+
+      # --repo: this repo's own issues. If project-notes.json's issues_repo is
+      # another repo, name it here and give the job a token that can read it.
+      - name: Write the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .skills/skills/project-notes/scripts/issues-snapshot.py --repo "${{ github.repository }}"
+
+      - name: Commit it if it changed
+        run: |
+          git add issues/snapshot.json
+          if git diff --cached --quiet; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Issues snapshot"
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }}
