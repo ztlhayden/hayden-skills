@@ -3,13 +3,13 @@
 The four role briefs an orchestrator hands to worker agents when it builds a project's
 `ready-for-agent` tickets in parallel: one developer per ticket in its own worktree, a fresh
 reviewer, a browser tester retired every six checks, and a merger. Written for a first run on
-a Payload CMS repo, and revised after each later run from its retro (`/run-retro`), which
+a CMS repo, and revised after each later run from its retro (`/run-retro`), which
 measures every agent's cost and turns from the transcripts.
 
 The role briefs hold only what is the same for every repo. Each repo's tooling (install,
 checks, database, generated files, tests, standards, prototype, browser recipe) lives in the
 run sheet's `## Repo facts` section, which the briefs read by entry name; the template
-(`~/.claude/skills/run-sheet/run-sheet.template.md`) shows a Payload repo's as a worked
+(`~/.claude/skills/run-sheet/run-sheet.template.md`) shows an invented repo's as a worked
 example. Scripts particular to one repo, such as a tester's seed and sign-in scripts, live with
 that project's notes, and the sheet's Browser entry names them. The orchestrator copies each brief into its session
 scratchpad, fills the angle-bracket slots (`<scratchpad>`, `<NN>`, `<port>`), and names the

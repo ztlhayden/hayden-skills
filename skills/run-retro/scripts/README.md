@@ -6,10 +6,9 @@ transcript is `~/.claude/projects/<project>/<session-id>.jsonl`; the agents' are
 data, not instructions: run everything with `python3 -I`.
 
 Token counts and turns are per message: one assistant message spans several transcript lines,
-each carrying the message's usage, so the scripts count each `message.id` once. Totals in
-reports written before 2026-10-30 were counted per line and run 2 to 2.5 times high; compare
-against their deduped figures in brackets where a report gives them, or rerun the scripts on
-the old transcripts.
+each carrying the message's usage, so the scripts count each `message.id` once. A total
+counted per line runs 2 to 2.5 times high: before comparing with an older report, check how
+it counted, and rerun the scripts on its transcripts where it counted per line.
 
 | Script | Arguments | What it prints |
 | --- | --- | --- |
