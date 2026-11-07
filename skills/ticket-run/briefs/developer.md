@@ -27,7 +27,7 @@ Build only what the ticket, its spec and the decisions it cites settle. Where th
 ## How to build
 
 1. Read everything above, then the code the ticket touches. Work only in your worktree, on your branch.
-2. Use the `tdd` skill (load it with the Skill tool) where there is behaviour: each test fails before the change that makes it pass. Tests follow the sheet's Tests; content is made up.
+2. Use the `tdd` skill (load it with the Skill tool) where there is behaviour. Tests follow the sheet's Tests; content is made up.
 3. Generated files and schema changes: regenerate and commit them as the sheet's Generated files says. A README rule your change alters changes in the same commit; so does the seed helper the sheet's Browser names, when your ticket changes what it creates.
 4. Run single test files as you go. At the end run the sheet's Checks in full. Report their real output; if anything fails and you can't fix it, say so.
 5. Commit in steps a reader can follow, each message brief (what changed, why if not obvious; no history of attempts; no ticket's number, title or notes-repo path, since the team reading the history doesn't know the tickets, and a bare `#n` links this repo's own issue), ending with a blank line and then `Co-Authored-By: <your model, e.g. Claude Opus 5.5 or Claude Sonnet 5.5> <noreply@anthropic.com>`. Let the pre-commit hook run. Push your branch: `timeout 60 git -C <worktree> push -u origin <branch>`, in the foreground; if it stalls, run it again, up to five tries; if it still won't go, say so in your first hand-back line.

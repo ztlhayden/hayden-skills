@@ -15,3 +15,5 @@ Measure a finished ticket run and record what the numbers say. The parsers are i
 6. Make the brief, template or parser changes the list names. They live in the skills repo these skills were installed from: `git -C ~/.claude/skills/ticket-run rev-parse --show-toplevel` finds its clone when the skills are linked from one (the briefs are `skills/ticket-run/briefs/`, the template `skills/run-sheet/`, the parsers `skills/run-retro/scripts/`). Commit to its `main`, staging only the files you changed, and push. When the skills are a copy rather than a clone, leave the changes as proposals in the retro. A change to a hook or a code repo is a proposal in the retro, not an edit. These files are public: no names, paths, ticket numbers or run details from the notes repo go in them, and an example a lesson needs is invented.
 
 Reply with the table and the numbered list, nothing else.
+
+Credit: changing the agents' environment where a run's evidence says so follows Matt Pocock's `retro` skill (https://github.com/mattpocock/skills).
