@@ -63,7 +63,7 @@ Then the gates (the template's Gates section), each with a reason:
 
 - Per-ticket review for marked tickets only, when most tickets are Sonnet-sized rules or fields: mark the Opus tickets and any that set a pattern others copy.
 - Browser checks for screens only, when some tickets change no page: mark those "no check".
-- Branches per lane, when a lane holds two or more tickets that run one after another anyway.
+- Branches per lane, when a lane holds two or more tickets that run one after another anyway. It saves most where no other lane waits on the lane's middle tickets: each such wait is an extra merge. Count the merges the lane would make and say so.
 - A sweep of what changed since checked, when most screens get their own check and few merge after it.
 - Keep the full set (the defaults) for a feature the maintainer wants every gate on, or where a lighter gate let a bug through in an earlier run's retro.
 

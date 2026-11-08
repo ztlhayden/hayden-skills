@@ -29,6 +29,18 @@ when writing it, and again before setting `status:ready-for-agent`.
    with who sets them, or explicitly left out.
 10. **Tests are listed by seam** (which endpoint or read, as which user, which refusal), so a
     reviewer can tick them.
+11. **A box that admits new rows** (an import keeping rows it used to skip, a copy, a bulk
+    add) says how each required field is filled for them. An import that now keeps rows
+    with no category can't land if the title comes from the category.
+12. **A rule that reads another record says what happens when that record later changes or
+    goes**: an invoice line whose discount code is deleted, an order line whose product is
+    retired. Refused at save, refused at publish, or left as it is.
+13. **A box that restates a decision's list** (what may be changed, what is refused) quotes
+    the decision or cites it, and says where it allows less. "Nothing else" in a box that a
+    decision's wider list contradicts is a question the developer will stop on.
+14. **A new way to save a record** (a grid, a drawer, an inline form) says what happens when
+    the record was saved by someone else since it was opened: refused like an existing
+    screen that checks (name it), or last save wins.
 
 A ticket that fails a line is not wrong; it is `status:needs-triage` until the maintainer
 settles the line (ask on the issue, as `issue-tracker.md`'s triage says), or the line is
