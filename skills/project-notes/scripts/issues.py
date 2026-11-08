@@ -18,7 +18,7 @@ Usage:
   python3 issues.py block [--remove] N BLOCKER...
   python3 issues.py status N STATUS [--comment-file FILE]
   python3 issues.py priority N (now | soon | later) [--comment-file FILE]
-  python3 issues.py board [N...]
+  python3 issues.py board (N... | --all)
   python3 issues.py start-here [--dry-run]
 
 The notes repo is $NOTES_ROOT, or ~/code/ai-notes when that is unset. Its
@@ -53,10 +53,19 @@ posting FILE first if given (say why you stopped); comment just posts FILE,
 for a run report on an issue that stays open. close
 posts FILE as a comment, closes the issue, drops any in-progress label, and
 says which issues that unblocks. All three keep the board in step for the
-issue they change; board does it for the issues named, or for every
+issue they change; board does it for the issues named, or (--all) for every
 labelled issue. The board's single-select fields Triage, Project, Org and
 Code repo copy the status:, project:, org: and repo: labels, and its Status
 field is Todo, In Progress or Done.
+
+A sync for named issues reads only those issues and their board items,
+and edits only the fields that differ; the board's project, field and option
+ids are cached in $XDG_CACHE_HOME/project-notes/ (default ~/.cache) and
+refreshed when one is missing or stale. --all reads the whole board and
+every issue, for catching up. Every gh call is retried once on a GitHub rate
+limit; if the board sync still hits one, the command prints one line
+saying the board lags and to run board later, and still succeeds, since
+the issue change went through (board itself then exits 1).
 
 search prints the issues matching GitHub search WORDS, open ones (--all
 adds closed), one line each: `#12 ready-for-agent soon [shop/checkout]
@@ -80,8 +89,9 @@ and repo: labels, the open milestones and the config's goals (start_here.py
 is the template), and edits it only if that changes it. Run it after adding
 a project, repo, milestone or goal; check says when it's out of date.
 
-Set ISSUES_GH to run another gh (the tests use a fake). Tests:
-python3 test_issues.py.
+Set ISSUES_GH to run another gh (the tests use a fake), and ISSUES_RETRY_WAIT
+for the seconds to wait before a rate-limit retry when GitHub gives no time
+(default 60). Tests: python3 test_issues.py.
 """
 import argparse
 import importlib.util
@@ -92,6 +102,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -149,12 +160,61 @@ def configure(cfg: dict | None = None) -> dict:
     return cfg
 
 
+class GhError(SystemExit):
+    """A failed gh call. Uncaught, it exits with its message like sys.exit."""
+
+
+class RateLimited(GhError):
+    """gh failed on a GitHub rate limit, primary or secondary, after one retry."""
+
+
+RATE_LIMIT = re.compile(r"rate[ _-]?limit|submitted too quickly|abuse detection", re.I)
+SECONDARY = re.compile(r"secondary|too quickly|abuse", re.I)
+MAX_WAIT = 120  # seconds; a longer wait (the hourly budget gone) isn't worth blocking a command for
+
+
+def run_gh(args: list[str]) -> subprocess.CompletedProcess:
+    cmd = shlex.split(os.environ.get("ISSUES_GH", "gh")) + args
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+
+
+def retry_wait(err: str) -> float | None:
+    """Seconds to wait before retrying after a rate-limit reply, or None if too long to wait.
+
+    gh doesn't pass on the reply's headers, so: a retry-after quoted in the
+    message; for the primary limit, its reset time from `gh api rate_limit`
+    (which costs nothing); otherwise ISSUES_RETRY_WAIT seconds (default 60,
+    GitHub's advice for a secondary limit)."""
+    backoff = float(os.environ.get("ISSUES_RETRY_WAIT", "60"))
+    m = re.search(r"retry[- _]after\D{0,5}(\d+)", err, re.I)
+    if m:
+        wait = float(m.group(1))
+    else:
+        wait = backoff
+    if not m and not SECONDARY.search(err):
+        r = run_gh(["api", "rate_limit"])
+        if r.returncode == 0:
+            spent = [v["reset"] for v in json.loads(r.stdout)["resources"].values() if v.get("remaining", 1) == 0]
+            if spent:
+                wait = max(max(spent) - time.time() + 1, 0)
+    return wait if wait <= MAX_WAIT else None
+
+
 def gh(*args: str) -> str:
-    cmd = shlex.split(os.environ.get("ISSUES_GH", "gh")) + list(args)
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if r.returncode != 0:
-        sys.exit(f"gh {' '.join(args)} failed: {r.stderr.strip()}")
-    return r.stdout.strip()
+    """Run gh and return its output; retry once on a rate limit. Raises GhError (RateLimited) on failure."""
+    for attempt in (0, 1):
+        r = run_gh(list(args))
+        if r.returncode == 0:
+            return r.stdout.strip()
+        err = r.stderr.strip()
+        msg = f"gh {' '.join(args)} failed: {err}"
+        if not RATE_LIMIT.search(err):
+            raise GhError(msg)
+        wait = retry_wait(err) if attempt == 0 else None
+        if wait is None:
+            raise RateLimited(msg)
+        time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def gh_json(*args: str):
@@ -612,51 +672,178 @@ def cmd_close(a) -> None:
 
 # --- the board ------------------------------------------------------------
 
-def sync_board(only: list[int] | None = None) -> None:
-    """Make the board's fields match the issues' labels; add missing labelled issues."""
-    if BOARD is None:
+# One issue's sync reads only that issue and its board items (one GraphQL
+# query), then edits the fields that differ. The project, field and option ids
+# come from a cache file, refreshed when a name is missing from it or an edit
+# with a cached id fails. Only `board --all` reads the whole board.
+
+ISSUE_QUERY = """query($owner: String!, $name: String!, $n: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $n) {
+      number url state
+      labels(first: 100) { nodes { name } }
+      projectItems(first: 20) { nodes {
+        id
+        project { number owner { ... on User { login } ... on Organization { login } } }
+        fieldValues(first: 30) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+          name field { ... on ProjectV2SingleSelectField { name } } } } }
+      } }
+    }
+  }
+}"""
+
+
+def cache_file() -> Path:
+    root = Path(os.environ.get("XDG_CACHE_HOME") or "~/.cache").expanduser()
+    return root / "project-notes" / f"board-{OWNER}-{BOARD}.json"
+
+
+class Board:
+    """The board's project, field and option ids, cached between runs."""
+
+    def __init__(self):
+        self.refreshed = False
+        try:
+            self.ids = json.loads(cache_file().read_text())
+        except (OSError, ValueError):
+            self.ids = None
+
+    def refresh(self) -> None:
+        pid = gh_json("project", "view", BOARD, "--owner", OWNER, "--format", "json")["id"]
+        fields = gh_json("project", "field-list", BOARD, "--owner", OWNER, "--format", "json")["fields"]
+        self.ids = {"project": pid, "fields": {
+            f["name"]: {"id": f["id"], "options": {o["name"]: o["id"] for o in f.get("options", [])}} for f in fields}}
+        self.refreshed = True
+        path = cache_file()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(f".{os.getpid()}.tmp")
+            tmp.write_text(json.dumps(self.ids, indent=1))
+            tmp.replace(path)
+        except OSError as e:
+            print(f"! couldn't write {path}: {e}", file=sys.stderr)
+
+    def lookup(self, name: str, value: str) -> tuple[str, str] | None:
+        """(field id, option id) for a single-select value; refreshes the cache once on a miss."""
+        for _ in (0, 1):
+            if self.ids is None:
+                self.refresh()
+            f = self.ids["fields"].get(name)
+            if f and value in f["options"]:
+                return f["id"], f["options"][value]
+            if self.refreshed:
+                return None
+            self.refresh()
+        return None
+
+    def add(self, url: str) -> str:
+        return gh_json("project", "item-add", BOARD, "--owner", OWNER, "--url", url, "--format", "json")["id"]
+
+    def edit(self, n: int, item: str, name: str, value: str) -> bool:
+        """Set one field; False (with a warning) if the board has no such option."""
+        for _ in (0, 1):
+            ids = self.lookup(name, value)
+            if ids is None:
+                print(f"! board has no {name} option '{value}' (#{n})")
+                return False
+            try:
+                gh("project", "item-edit", "--id", item, "--project-id", self.ids["project"], "--field-id", ids[0],
+                   "--single-select-option-id", ids[1])
+                return True
+            except RateLimited:
+                raise
+            except GhError:
+                if self.refreshed:
+                    raise
+                self.refresh()  # a cached id may be stale: an option or field remade on the board
+        return False
+
+    def apply(self, n: int, item: str, labels: list[str], state: str, have: dict[str, str]) -> None:
+        changed = [f"{k}={v}" for k, v in board_values(labels, state).items()
+                   if have.get(k) != v and self.edit(n, item, k, v)]
+        if changed:
+            print(f"board #{n}: " + ", ".join(changed))
+
+
+def board_values(labels: list[str], state: str) -> dict[str, str]:
+    """The board fields an issue's labels and state call for."""
+    want = {}
+    for l in labels:
+        g, _, v = l.partition(":")
+        if g in BOARD_FIELDS and BOARD_FIELDS[g] not in want:
+            want[BOARD_FIELDS[g]] = v
+    want["Status"] = ("Done" if state == "CLOSED" else
+                      "In Progress" if want.get("Triage", "").startswith("in-progress") else "Todo")
+    return want
+
+
+def sync_one(b: Board, n: int) -> None:
+    owner, name = REPO.split("/")
+    data = gh_json("api", "graphql", "-f", f"query={ISSUE_QUERY}", "-F", f"owner={owner}", "-F", f"name={name}",
+                   "-F", f"n={n}")
+    iss = ((((data or {}).get("data") or {}).get("repository")) or {}).get("issue")
+    if not iss:
+        print(f"! no issue #{n} in {REPO}", file=sys.stderr)
         return
-    pid = gh_json("project", "view", BOARD, "--owner", OWNER, "--format", "json")["id"]
-    fields = {f["name"]: f for f in gh_json("project", "field-list", BOARD, "--owner", OWNER, "--format", "json")["fields"]}
+    labels = [l["name"] for l in iss["labels"]["nodes"]]
+    if not any(l.startswith("project:") for l in labels):
+        return
+    item = next((i for i in iss["projectItems"]["nodes"]
+                 if str(i["project"]["number"]) == BOARD
+                 and (i["project"].get("owner") or {}).get("login", "").lower() == OWNER.lower()), None)
+    if item:
+        have = {v["field"]["name"]: v["name"] for v in item["fieldValues"]["nodes"] if v.get("field")}
+        b.apply(n, item["id"], labels, iss["state"], have)
+    else:
+        b.apply(n, b.add(iss["url"]), labels, iss["state"], {})
+
+
+def sync_all(b: Board) -> None:
+    """Every labelled issue: reads the whole board and every issue, so for catching up only."""
+    b.refresh()
     items = gh_json("project", "item-list", BOARD, "--owner", OWNER, "--format", "json", "--limit", "1000")["items"]
     by_number = {i["content"].get("number"): i for i in items if i.get("content")}
     issues = gh_json("issue", "list", "-R", REPO, "--state", "all", "--limit", "1000", "--json", "number,url,state,labels")
     for iss in sorted(issues, key=lambda x: x["number"]):
-        if only is not None and iss["number"] not in only:
-            continue
         labels = [l["name"] for l in iss["labels"]]
         if not any(l.startswith("project:") for l in labels):
             continue
         item = by_number.get(iss["number"])
-        if not item:
-            item = gh_json("project", "item-add", BOARD, "--owner", OWNER, "--url", iss["url"], "--format", "json")
-        want = {}
-        for l in labels:
-            g, _, v = l.partition(":")
-            if g in BOARD_FIELDS and BOARD_FIELDS[g] not in want:
-                want[BOARD_FIELDS[g]] = v
-        want["Status"] = ("Done" if iss["state"] == "CLOSED" else
-                          "In Progress" if want.get("Triage", "").startswith("in-progress") else "Todo")
-        changed = []
-        for name, value in want.items():
-            f = fields[name]
-            opt = next((o for o in f.get("options", []) if o["name"] == value), None)
-            if opt is None:
-                print(f"! board has no {name} option '{value}' (#{iss['number']})")
-                continue
-            if item.get(name.lower()) == value:
-                continue
-            gh("project", "item-edit", "--id", item["id"], "--project-id", pid, "--field-id", f["id"],
-               "--single-select-option-id", opt["id"])
-            changed.append(f"{name}={value}")
-        if changed:
-            print(f"board #{iss['number']}: " + ", ".join(changed))
+        if item:
+            have = {k: item.get(k.lower()) for k in board_values(labels, iss["state"])}
+            b.apply(iss["number"], item["id"], labels, iss["state"], have)
+        else:
+            b.apply(iss["number"], b.add(iss["url"]), labels, iss["state"], {})
+
+
+def sync_board(only: list[int] | None = None) -> bool:
+    """Make the board match the labels of the issues in only (None: every issue).
+
+    On a rate limit that outlasts the retry it prints one line and returns
+    False: the issue change itself went through, so the command still succeeds."""
+    if BOARD is None:
+        return True
+    b = Board()
+    try:
+        if only is None:
+            sync_all(b)
+        else:
+            for n in only:
+                sync_one(b, n)
+    except RateLimited:
+        again = "--all" if only is None else " ".join(str(n) for n in only)
+        print(f"! the board lags (GitHub rate limit): run `issues.py board {again}` later", file=sys.stderr)
+        return False
+    return True
 
 
 def cmd_board(a) -> None:
     if BOARD is None:
         sys.exit(f'No "board" in {CONFIG_FILE}: nothing to sync')
-    sync_board(a.n or None)
+    if bool(a.all) == bool(a.n):
+        sys.exit("Name the issues to sync, or --all for every issue (reads the whole board: for catching up)")
+    if not sync_board(None if a.all else a.n):
+        sys.exit(1)
 
 
 # --- Start here -------------------------------------------------------------
@@ -733,7 +920,8 @@ def main() -> None:
     s.add_argument("--comment-file"); s.set_defaults(f=cmd_priority)
     s = sub.add_parser("block"); s.add_argument("--remove", action="store_true"); s.add_argument("n", type=int)
     s.add_argument("blockers", type=int, nargs="+"); s.set_defaults(f=cmd_block)
-    s = sub.add_parser("board"); s.add_argument("n", type=int, nargs="*"); s.set_defaults(f=cmd_board)
+    s = sub.add_parser("board"); s.add_argument("--all", action="store_true"); s.add_argument("n", type=int, nargs="*")
+    s.set_defaults(f=cmd_board)
     s = sub.add_parser("start-here"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(f=cmd_start_here)
     a = p.parse_args()
     configure()

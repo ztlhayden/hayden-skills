@@ -31,6 +31,12 @@ def fake_gh(args: list[str]) -> None:
     st = json.loads(Path(path).read_text())
     st["log"].append(args)
     out = None
+    # A queued failure ({"match": [args prefix], "stderr": "..."}) answers the next matching call.
+    fail = next((f for f in st.get("fail", []) if args[:len(f["match"])] == f["match"]), None)
+    if fail:
+        st["fail"].remove(fail)
+        Path(path).write_text(json.dumps(st))
+        sys.exit(fail["stderr"])
 
     def opt(name, default=None):
         return args[args.index(name) + 1] if name in args else default
@@ -83,6 +89,22 @@ def fake_gh(args: list[str]) -> None:
         out = [{"name": l} for l in st["labels"]]
     elif a[:2] == ["label", "create"]:
         st["labels"].append(a[2])
+    elif a[:2] == ["api", "graphql"]:
+        n = int(dict(v.split("=", 1) for k, v in zip(a, a[1:]) if k == "-F")["n"])
+        i = st["issues"][str(n)]
+        other = {"id": f"X-{n}", "project": {"number": 9, "owner": {"login": "acme"}},  # another board's item
+                 "fieldValues": {"nodes": [{"name": "Done", "field": {"name": "Status"}}]}}
+        nodes = [other]
+        if str(n) in st["items"]:
+            item = st["items"][str(n)]
+            nodes.append({"id": item["id"], "project": {"number": 3, "owner": {"login": "acme"}},
+                          "fieldValues": {"nodes": [{}] + [{"name": item[f.lower()], "field": {"name": f}}
+                                                           for f in FIELDS if f.lower() in item]}})
+        out = {"data": {"repository": {"issue": {
+            "number": n, "url": REPO_URL + str(n), "state": i["state"],
+            "labels": {"nodes": [{"name": l} for l in i["labels"]]}, "projectItems": {"nodes": nodes}}}}}
+    elif a[:2] == ["api", "rate_limit"]:
+        out = {"resources": {"core": {"remaining": 4000, "reset": 0}, "graphql": {"remaining": 0, "reset": 0}}}
     elif a[0] == "api" and "-f" in a:
         st["milestones"].append(opt("-f").split("=", 1)[1])
     elif a[0] == "api":
@@ -99,7 +121,10 @@ def fake_gh(args: list[str]) -> None:
         st["items"][n] = out = {"id": f"I-{n}", "content": {"number": int(n)}}
     elif a[:2] == ["project", "item-edit"]:
         item = next(i for i in st["items"].values() if i["id"] == opt("--id"))
-        item[opt("--field-id")[2:].lower()] = opt("--single-select-option-id")[2:]
+        field, option = opt("--field-id")[2:], opt("--single-select-option-id")[2:]
+        if opt("--project-id") != "P1" or option not in FIELDS.get(field, []):
+            sys.exit("GraphQL: Could not resolve to a node with the global id")
+        item[field.lower()] = option
     else:
         sys.exit(f"fake gh: no answer for {a}")
     Path(path).write_text(json.dumps(st))
@@ -163,6 +188,7 @@ class Issues(unittest.TestCase):
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess:
         env = dict(os.environ, FAKE_GH_STATE=str(self.state), NOTES_ROOT=str(self.notes),
+                   XDG_CACHE_HOME=str(Path(self.tmp.name) / "cache"), ISSUES_RETRY_WAIT="0",
                    ISSUES_GH=f"{sys.executable} -I {Path(__file__).resolve()} fake-gh")
         return subprocess.run([sys.executable, "-I", str(SCRIPT), *args], capture_output=True, text=True, env=env)
 
@@ -331,16 +357,105 @@ class Issues(unittest.TestCase):
         self.assertIn("#4 still waits on #3", out)
         self.assertIn("already closed", self.run_cli("close", "5", "--completed", "--comment-file", str(f)).stderr)
 
-    def test_board_adds_every_labelled_issue(self):
-        self.ok("board")
+    def calls(self, *prefix: str) -> int:
+        return sum(1 for c in self.st()["log"] if c[:len(prefix)] == list(prefix))
+
+    def test_board_all_adds_every_labelled_issue(self):
+        self.ok("board", "--all")
         items = self.st()["items"]
         self.assertEqual(sorted(items, key=int), [str(n) for n in range(1, 11)])
         self.assertEqual(items["1"]["status"], "Done")
-        self.ok("board")
-        edits = [c for c in self.st()["log"] if c[:2] == ["project", "item-edit"]]
-        before = len(edits)
-        self.ok("board")
-        self.assertEqual(len([c for c in self.st()["log"] if c[:2] == ["project", "item-edit"]]), before)  # in step
+        before = self.calls("project", "item-edit")
+        self.ok("board", "--all")
+        self.assertEqual(self.calls("project", "item-edit"), before)  # in step
+        self.assertIn("Name the issues", self.run_cli("board").stderr)  # the whole board only when asked
+        self.assertIn("Name the issues", self.run_cli("board", "--all", "2").stderr)
+
+    def test_one_issue_sync_reads_only_that_issue(self):
+        self.ok("claim", "2")
+        self.assertEqual(self.calls("project", "item-list"), 0)
+        self.assertEqual(self.calls("issue", "list"), 0)
+        self.assertEqual(self.calls("api", "graphql"), 1)
+        self.assertEqual(self.calls("project", "field-list"), 1)  # the empty cache filled
+        st = self.st()
+        st["log"] = []
+        self.save(st)
+        out = self.ok("release", "2", "ready-for-human")
+        self.assertEqual(self.st()["items"]["2"]["triage"], "ready-for-human")
+        self.assertIn("board #2: Triage=ready-for-human, Status=Todo", out)  # only the fields that differ
+        self.assertEqual([c[:2] for c in self.st()["log"]],
+                         [["issue", "view"], ["issue", "edit"], ["api", "graphql"],
+                          ["project", "item-edit"], ["project", "item-edit"]])  # ids from the cache
+        self.assertNotIn("X-2", json.dumps(self.st()["log"]))  # the other board's item is left alone
+        out = self.ok("board", "2", "3")
+        self.assertIn("board #3:", out)
+        self.assertNotIn("board #2", out)  # already in step
+        self.assertEqual(self.calls("project", "item-add"), 1)  # #3 wasn't on the board
+        self.assertEqual(sorted(self.st()["items"]), ["2", "3"])
+
+    def cache(self) -> Path:
+        return Path(self.tmp.name) / "cache" / "project-notes" / "board-acme-3.json"
+
+    def test_cache_miss_and_stale_id_refresh(self):
+        self.ok("board", "2")
+        ids = json.loads(self.cache().read_text())
+        del ids["fields"]["Triage"]["options"]["in-progress-agent"]  # an option added since
+        self.cache().write_text(json.dumps(ids))
+        before = self.calls("project", "field-list")
+        self.ok("claim", "2")
+        self.assertEqual(self.st()["items"]["2"]["triage"], "in-progress-agent")
+        self.assertEqual(self.calls("project", "field-list"), before + 1)
+        self.assertIn("in-progress-agent", json.loads(self.cache().read_text())["fields"]["Triage"]["options"])
+        ids = json.loads(self.cache().read_text())
+        ids["fields"]["Triage"]["options"]["ready-for-human"] = "O-remade"  # an option remade: new id
+        self.cache().write_text(json.dumps(ids))
+        self.ok("release", "2", "ready-for-human")
+        self.assertEqual(self.st()["items"]["2"]["triage"], "ready-for-human")
+        self.assertEqual(self.calls("project", "field-list"), before + 2)
+        # a value the board really lacks: one refresh, then a warning
+        st = self.st()
+        st["issues"]["2"]["labels"].append("repo:elsewhere")
+        st["issues"]["2"]["labels"].remove("repo:storefront")
+        self.save(st)
+        self.assertIn("! board has no Code repo option 'elsewhere' (#2)", self.ok("board", "2"))
+        self.assertEqual(self.calls("project", "field-list"), before + 3)
+
+    def test_rate_limit_retried_once(self):
+        st = self.st()
+        st["fail"] = [{"match": ["api", "graphql"], "stderr": "GraphQL: You have exceeded a secondary rate limit."}]
+        self.save(st)
+        self.assertIn("claimed #2", self.ok("claim", "2"))
+        self.assertEqual(self.calls("api", "graphql"), 2)
+        self.assertEqual(self.st()["items"]["2"]["triage"], "in-progress-agent")
+        st = self.st()  # the primary limit: its reset comes from rate_limit
+        st["fail"] = [{"match": ["project", "item-edit"], "stderr": "GraphQL: API rate limit exceeded for user ID 1."}]
+        self.save(st)
+        self.ok("release", "2", "ready-for-human")
+        self.assertEqual(self.calls("api", "rate_limit"), 1)
+        self.assertEqual(self.st()["items"]["2"]["triage"], "ready-for-human")
+
+    def test_rate_limit_twice_leaves_the_board_lagging(self):
+        st = self.st()
+        st["fail"] = [{"match": ["api", "graphql"], "stderr": "GraphQL: was submitted too quickly"}] * 2
+        self.save(st)
+        r = self.run_cli("claim", "2")
+        self.assertEqual(r.returncode, 0, r.stderr)  # the claim itself went through
+        self.assertIn("status:in-progress-agent", self.labels(2))
+        self.assertIn("claimed #2", r.stdout)
+        self.assertEqual(r.stderr.strip(), "! the board lags (GitHub rate limit): run `issues.py board 2` later")
+        self.assertNotIn("2", self.st()["items"])
+        st = self.st()
+        st["fail"] = [{"match": ["api", "graphql"], "stderr": "secondary rate limit"}] * 2
+        self.save(st)
+        r = self.run_cli("board", "2")
+        self.assertEqual(r.returncode, 1)  # board's own job failed
+        self.assertIn("run `issues.py board 2` later", r.stderr)
+        st = self.st()
+        st["fail"] = [{"match": ["issue", "view"], "stderr": "HTTP 404: Not Found"}]
+        self.save(st)
+        r = self.run_cli("claim", "2")
+        self.assertEqual(r.returncode, 1)  # other failures aren't retried
+        self.assertEqual(self.calls("issue", "view"), 2)
 
     def fixed_labels(self):
         st = self.st()

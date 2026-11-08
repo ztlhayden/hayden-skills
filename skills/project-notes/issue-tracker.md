@@ -61,8 +61,9 @@ an issue to another milestone, editing a body).
   blockers (see New issues).
 - `status <n> <status>`, `priority <n> now|soon|later`, `block [--remove] <n>
   <blocker>...`: triage changes, each with an optional `--comment-file`.
-- `board [<n>...]`: copy labels onto the board, for issues changed with raw
-  `gh`.
+- `board <n>...`: copy labels onto the board, for issues changed with raw
+  `gh` or a board that lags. `board --all` syncs every issue, reading the
+  whole board: for catching up only, as it is heavy on GitHub's rate limits.
 - `start-here [--dry-run]`: rebuild Start here from the labels, milestones
   and goals, after adding a project, repo, milestone or goal.
 
@@ -172,7 +173,9 @@ answer. In a live session, ask the same as a round instead.
   copy the labels, and Status is Todo, In Progress or Done. `claim`,
   `release` and `close` keep it in step; after any other label change, run
   `issues.py board <n>`. A `!` line means the board has no option for that
-  label yet: add it on the board.
+  label yet: add it on the board. If GitHub's rate limit stops the sync, the
+  command still succeeds and says the board lags: run the `board` command it
+  names later.
 - **The snapshot** `issues/snapshot.json` in the notes repo holds every issue
   (comments, labels, milestone, blockers), written nightly by the "Issues
   snapshot" Action (`templates/issues-snapshot.yml` in the skills repo). It is
