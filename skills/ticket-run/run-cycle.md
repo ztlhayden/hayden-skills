@@ -1,8 +1,8 @@
 # The ticket-run cycle
 
 How work alternates between hands-on sessions and unattended runs. One loop per feature,
-repeated until its tickets are all closed. The tickets are issues in the feature's milestone,
-or files in its folder for a feature not yet moved to issues; the decisions, run sheets,
+repeated until its tickets are all closed. The tickets are issues in the feature's milestone;
+the specs, decisions, run sheets,
 reports and retros are files in the private notes repo (`$NOTES_ROOT`, by default
 `~/code/ai-notes`). The `project-notes` skill describes both.
 
@@ -10,7 +10,7 @@ reports and retros are files in the private notes repo (`$NOTES_ROOT`, by defaul
    report and every `ready-for-human` ticket gets a decision (`decisions/`) or a comment on the
    ticket saying it is left out. Then tickets: new ones through `/to-tickets`, each passed
    through [`ticket-checklist.md`](../project-notes/ticket-checklist.md) before it turns
-   `ready-for-agent`. Last, the run sheet: `/run-sheet <milestone or feature folder>` drafts it
+   `ready-for-agent`. Last, the run sheet: `/run-sheet <milestone>` drafts it
    from the ready tickets (lanes, models, the blocker walk, seams, scope, sweep) and asks you
    to confirm the judgement calls; by hand, copy
    [`run-sheet.template.md`](../run-sheet/run-sheet.template.md) to the notes repo's

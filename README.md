@@ -4,7 +4,7 @@ Claude Code skills for building a feature's tickets with unattended agent runs, 
 
 | Skill | Started by | What it does |
 | --- | --- | --- |
-| `project-notes` | Claude, when it works with tickets or project notes | The layout of the private notes repo that holds every project's specs, glossary, decisions and repo map, with its tickets as GitHub issues, and scripts to survey, claim, close and migrate them |
+| `project-notes` | Claude, when it works with tickets or project notes | The layout of the private notes repo that holds every project's specs, glossary, decisions and repo map, with its tickets as GitHub issues, and scripts to survey, claim and close them |
 | `run-sheet` | you: `/run-sheet <feature>` | Drafts a run's sheet from a feature's `ready-for-agent` tickets: lanes, a model per ticket, seams between lanes, scope, the final sweep |
 | `ticket-run` | you: `/ticket-run <run sheet>` | An orchestrator builds the sheet's tickets with developer, reviewer, browser-tester and merger agents, each from its own brief, and ends with a draft PR and a report |
 | `run-retro` | you: `/run-retro <session>` | Measures a finished run from its transcripts (tokens and turns per role, tester growth, hook blocks, commit times) and changes the briefs where the numbers say so |
@@ -69,17 +69,9 @@ Install [Matt Pocock's skills](https://github.com/mattpocock/skills) too: these 
   See `~/.claude/skills/project-notes/domain.md`.
   ```
 
-- **Markdown tickets**, if you have them from before: `migrate-issues.py --dry-run` starts moving them to issues (see `issue-tracker.md`). For any that stay (archived features), set the notes repo's pre-commit hook to the ticket checker, in its `.githooks/pre-commit`:
-
-  ```sh
-  #!/bin/sh
-  exec ~/.claude/skills/project-notes/scripts/pre-commit
-  ```
-
-  then `git config core.hooksPath .githooks`.
 - **`playwright-cli`** for the browser tester, and git worktrees for the developers. The run sheet's Repo facts say how to install, check and seed each repo.
 
-Python 3.10 or later runs the scripts; they need nothing beyond the standard library. Tests: `python3 test_issues.py`, `test_migrate_issues.py` and `test_ticket.py` in `skills/project-notes/scripts/`.
+Python 3.10 or later runs the scripts; they need nothing beyond the standard library. Tests: `python3 test_issues.py` in `skills/project-notes/scripts/`.
 
 ## Credits
 

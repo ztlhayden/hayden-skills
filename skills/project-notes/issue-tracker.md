@@ -207,30 +207,12 @@ Used by `/wayfinder`, for one effort's milestone:
   --completed --comment-file <file>`), and a one-line pointer in `map.md`'s
   Decisions so far.
 
-## Markdown tickets
+## The feature folder
 
-Before issues, tickets were markdown files, and archived features keep them:
-`<project>/tickets/<feature>/issues/<NN>-<slug>.md` beside `spec.md`, with a
-`Status:` line (see `triage-labels.md`), a `Blocked by: NN, NN` line, a
-`Repo:` line, and comments under `## Comments`; closed ones in
-`issues/archive/`, finished features under `<project>/tickets/archive/`.
-`check-tickets.py --summary` lists the features that still have them;
-`ticket.py show|refs` reads them. A feature folder holding only its `spec.md`
-(and `map.md`) has moved: its tickets are issues in its milestone.
-
-**Moving them** is `migrate-issues.py`, every project at once:
-
-1. `migrate-issues.py --dry-run <out>` (`--include-archived` for finished
-   features too) changes nothing on GitHub and writes `<out>/report.md`
-   (counts, labels and milestones to create, unresolved links, unmapped
-   statuses) and one file per ticket as it would be posted.
-2. Settle what the report asks in a decisions file (the script's
-   docstring lists its keys), and dry-run again until the report is clean.
-3. `migrate-issues.py --run <out> --decisions <file>` moves them; a stopped
-   run resumes when run again.
-4. Remove the moved ticket files, fix the links the report lists, add any new
-   options to the board's fields, then `issues.py board` and
-   `issues.py start-here`.
+A feature's folder in the notes repo, `<project>/tickets/<feature>/`, holds
+its `spec.md` (and `map.md`, for a wayfinding effort) and nothing else: its
+tickets are issues in its milestone. A finished feature's folder moves to
+`<project>/tickets/archive/`.
 
 After changing anything in the notes repo, commit and push it straight to
 `main`.

@@ -20,6 +20,4 @@ Read the file for what you are doing:
 The scripts are in `scripts/`; run them from any folder. Each one's docstring is its manual.
 
 - `issues.py`: the issues, through `gh`: `survey`, `list`, `show`, `chain`, `check`, `claim`, `release`, `comment`, `close`, `board`, `start-here`. Start a survey with `issues.py survey` instead of reading issues.
-- `migrate-issues.py`: moves markdown features' tickets to issues (`--dry-run` first).
 - `issues-snapshot.py`: writes every issue to `issues/snapshot.json`, for the nightly Action.
-- `check-tickets.py`, `ticket.py`, `pre-commit`: read and check markdown tickets (archived features, and any not yet moved).

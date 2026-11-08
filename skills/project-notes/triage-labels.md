@@ -31,11 +31,3 @@ Outside the skills' roles:
   PR `owner/repo#12`).
 - A ticket whose work is built but waits on the user's decision or marks is
   `ready-for-human`.
-
-## Markdown tickets
-
-Markdown tickets (archived features, and any not yet moved) keep the state as
-a `Status:` line's value: the same roles without the `status:` prefix, plus
-`blocked` (any ticket in its `Blocked by:` line is open) and `resolved` (done,
-with where it landed after a dash: `resolved — merged to main, PR
-owner/repo#12`).

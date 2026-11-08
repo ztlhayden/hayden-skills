@@ -24,7 +24,8 @@ For example:
 | `acme/library` (`~/code/acme/library`) | Serves published lessons to readers | Agents may push `main`; a push deploys | pnpm | README |
 
 The Codebase cell names the repo as `owner/name` (or a bare name followed by
-its `~/code/owner/name` path): `migrate-issues.py` reads owners from it.
+its `~/code/owner/name` path), so the owner is always clear: it is the
+issue's `org:` label.
 
 ## Keep it true
 
@@ -43,7 +44,7 @@ about the rules: rules are theirs to retire.
 Before `/implement`, `/implement-spec`, or any change that spans repos, settle
 for every ticket and every repo it touches:
 
-- **Repo**: the issue's `repo:` labels (a markdown ticket's `Repo:` line).
+- **Repo**: the issue's `repo:` labels.
 - **Branch**: where the work lands, and whether you may push it.
 - **Scope**: which tickets are in, and which the user has said to skip.
 

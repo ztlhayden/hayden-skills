@@ -19,7 +19,7 @@ already loads for every agent; machine rules live there.
 | File | Who reads it | Model that fitted |
 | --- | --- | --- |
 | `orchestrator.md` | the orchestrator, started by `/ticket-run <run sheet>`; holds what is the same every run | Fable for the first run; Opus from the second, measured |
-| `../../run-sheet/run-sheet.template.md` | `/run-sheet <milestone or feature folder>`, once per run, or the user by hand: copied to the notes repo's `sessions/<date>-run-sheet.md` and filled with the repo facts, tickets, lanes, models, seams, scope and sweep | |
+| `../../run-sheet/run-sheet.template.md` | `/run-sheet <milestone>`, once per run, or the user by hand: copied to the notes repo's `sessions/<date>-run-sheet.md` and filled with the repo facts, tickets, lanes, models, seams, scope and sweep | |
 | `developer.md` | one agent per ticket | Opus for a custom screen or framework internals; Sonnet for a rule, a field, a migration or a page restyle |
 | `reviewer.md` | a fresh agent per ticket branch | Sonnet; Opus for the whole-run review, over the run's range only |
 | `merger.md` | a fresh agent per merge; the message may name one check to run after the merge | Sonnet |
