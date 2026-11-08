@@ -5,7 +5,7 @@ description: "Conventions for the private notes repo ($NOTES_ROOT, default ~/cod
 
 # Project notes
 
-Each project's notes live in one private notes repo, `$NOTES_ROOT` (default `~/code/ai-notes`), apart from the code, because one project can span several repos and some of those repos are public. A project's folder there holds its `README.md` (with the repo map), `GLOSSARY.md`, `decisions/` and `tickets/<feature>/spec.md`. The tickets are GitHub issues on the repo that the notes repo's `project-notes.json` names.
+Each project's notes live in one private notes repo, `$NOTES_ROOT` (default `~/code/ai-notes`), apart from the code, because one project can span several repos and some of those repos are public. A project's folder there holds its `README.md` (with the repo map), `GLOSSARY.md`, `decisions/` and `specs/<feature>/spec.md`. The tickets are GitHub issues on the repo that the notes repo's `project-notes.json` names.
 
 Read the file for what you are doing:
 

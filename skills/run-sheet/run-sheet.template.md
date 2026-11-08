@@ -34,7 +34,7 @@ last sheet for the same repo where there is one.
 
 - Tickets: issues <#n, #n, ...>.
 - Decisions: `<project>/decisions/<NNNN>`, ...
-- Spec blocks: `<project>/tickets/<feature>/spec.md`, "<heading>" (stories <a> to <b>) and its implementation block.
+- Spec blocks: `<project>/specs/<feature>/spec.md`, "<heading>" (stories <a> to <b>) and its implementation block.
 
 ## Blocker walk
 

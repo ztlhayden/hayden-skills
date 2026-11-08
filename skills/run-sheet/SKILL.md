@@ -15,7 +15,7 @@ The template is `run-sheet.template.md` beside this file. `<notes>` is the notes
 
 ### 1. Find the milestone
 
-The user passes a milestone (`<project>/<feature>`), or a feature folder (`<project>/tickets/<feature>`), whose tickets are the issues in the milestone of the same name; ask if neither. The sheet's Tickets line names the milestone.
+The user passes a milestone (`<project>/<feature>`), or a feature folder (`<project>/specs/<feature>`), whose tickets are the issues in the milestone of the same name; ask if neither. The sheet's Tickets line names the milestone.
 
 ### 2. Gather the tickets
 

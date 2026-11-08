@@ -71,7 +71,7 @@ Tests: `python3 test_issues.py` in the scripts folder.
 ## Milestones and labels
 
 - **A feature is a milestone** named `<project>/<feature>`, whose description
-  links its spec at `<project>/tickets/<feature>/spec.md` in the notes repo. A
+  links its spec at `<project>/specs/<feature>/spec.md` in the notes repo. A
   deadline is the milestone's due date.
 - **Labels**, four groups on every issue: `org:` (the GitHub owner the work
   is for), `project:` (the notes folder), `repo:` (where the code lands, its
@@ -195,7 +195,7 @@ answer. In a live session, ask the same as a round instead.
 Used by `/wayfinder`, for one effort's milestone:
 
 - **Map**: `map.md` (Notes / Decisions so far / Fog), a file in
-  `<project>/tickets/<effort>/` beside the spec.
+  `<project>/specs/<effort>/` beside the spec.
 - **Child ticket**: an issue in the milestone with the question in the body
   and its `type:` label.
 - **Blocking**: *blocked by* links. A ticket is unblocked when every blocker
@@ -209,10 +209,10 @@ Used by `/wayfinder`, for one effort's milestone:
 
 ## The feature folder
 
-A feature's folder in the notes repo, `<project>/tickets/<feature>/`, holds
+A feature's folder in the notes repo, `<project>/specs/<feature>/`, holds
 its `spec.md` (and `map.md`, for a wayfinding effort) and nothing else: its
 tickets are issues in its milestone. A finished feature's folder moves to
-`<project>/tickets/archive/`.
+`<project>/specs/archive/`.
 
 After changing anything in the notes repo, commit and push it straight to
 `main`.

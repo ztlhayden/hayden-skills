@@ -30,7 +30,7 @@ Install [Matt Pocock's skills](https://github.com/mattpocock/skills) too: these 
 
 ## What the skills expect
 
-- **A private notes repo at `~/code/ai-notes`** (or wherever `NOTES_ROOT` points), apart from the code, because tickets carry private detail and one project can span several repos. One folder per project, holding `README.md` (with its repo map), `GLOSSARY.md`, `decisions/` and `tickets/<feature>/spec.md`; run sheets and reports go in `sessions/`. `skills/project-notes/` describes each part.
+- **A private notes repo at `~/code/ai-notes`** (or wherever `NOTES_ROOT` points), apart from the code, because tickets carry private detail and one project can span several repos. One folder per project, holding `README.md` (with its repo map), `GLOSSARY.md`, `decisions/` and `specs/<feature>/spec.md`; run sheets and reports go in `sessions/`. `skills/project-notes/` describes each part.
 - **`project-notes.json` at the notes repo's root**, naming where the tickets live. Only `issues_repo` is required:
 
   ```json
