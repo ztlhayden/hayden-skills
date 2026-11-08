@@ -57,6 +57,18 @@ Then a model per ticket:
 
 </model-rules>
 
+Then the gates (the template's Gates section), each with a reason:
+
+<gate-rules>
+
+- Per-ticket review for marked tickets only, when most tickets are Sonnet-sized rules or fields: mark the Opus tickets and any that set a pattern others copy.
+- Browser checks for screens only, when some tickets change no page: mark those "no check".
+- Branches per lane, when a lane holds two or more tickets that run one after another anyway.
+- A sweep of what changed since checked, when most screens get their own check and few merge after it.
+- Keep the full set (the defaults) for a feature the maintainer wants every gate on, or where a lighter gate let a bug through in an earlier run's retro.
+
+</gate-rules>
+
 ### 5. Find seams and other-repo halves
 
 A seam is one lane's change that another lane's code reads: a served value, a label, a shape in a document. For each, write the one-line check the second merger runs on the merged code and the page the sweep opens. A ticket whose repo (its `repo:` labels, or `Repo:` line) or boxes name a second repo keeps only this repo's boxes in the run and ends `ready-for-human` with the other half named.
@@ -67,6 +79,7 @@ Present the draft as the sheet's tables and ask:
 
 - Are the lanes right: does each one hold the tickets that truly share collections and screens, in the right order?
 - Is each model right, given the ticket's shape?
+- Each gate: the full set, or the lighter choice proposed, and which tickets it marks?
 - Each blocker finding: does the run wait, leave the ticket out, or does the user fix the blocker first?
 - Is every seam caught, and does its named check say what to confirm?
 - Anything to add to the out-of-scope list, and is the sweep list complete?

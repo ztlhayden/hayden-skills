@@ -56,6 +56,15 @@ A ticket left `ready-for-human` only for a check by eye: its dependents start <o
 
 Longest lane first. Opus for a custom admin screen or framework internals; Sonnet for a rule, a field or a migration.
 
+## Gates
+
+Which checks each ticket passes through, and how its work lands. Each option names its choice; the first is the default, the full set. A lighter choice saves agents, and every agent saved also saves the orchestrator three to five turns. The Lanes table's Notes column marks the tickets an option singles out.
+
+- **Per-ticket review:** <every ticket / marked only>. _Marked only: a ticket marked "review" in Notes gets its own reviewer (mark Opus tickets, and any that set a pattern others copy); the rest go from developer to merger, and the whole-run review covers them. Example: "marked only: 04 and 07"._
+- **Browser checks:** <every ticket / screens only>. _Screens only: a ticket whose boxes change no page (a server rule, an import, a refusal its tests pin) gets no per-ticket check, marked "no check" in Notes; the final sweep still opens what it lists._
+- **Branches:** <per ticket / per lane>. _Per lane: a lane with more than one ticket is built on one branch, `<feature>-<lane-slug>`, in one worktree, each ticket by its own developer starting from the last one's head; each gets its review and check there, and the lane merges once, when its last ticket passes, or earlier when a ticket in another lane waits on it. A lane of one ticket is per ticket either way._
+- **Final sweep:** <all listed / changed since checked>. _Changed since checked: the sweep opens only the listed screens whose code changed after their own check passed (a later merge, a seam, the whole-run fixes), and every seam; the report names the screens it skipped and the check that covered each._
+
 ## Seams
 
 - <Ticket A> changes <thing>; <ticket B> reads it. Named check for the second merger: "<what to confirm on the merged code>". The sweep opens <page> on <data>.
