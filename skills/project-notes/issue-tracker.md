@@ -42,7 +42,8 @@ command; raw `gh` only for what it doesn't do (a milestone's due date, moving
 an issue to another milestone, editing a body).
 
 - `survey [<milestone>]`: one line per milestone with its count of each status
-  and priority, the issues an agent can start, and any blocker problems.
+  and priority, the issues an agent can start, the `ready-for-human` ones
+  waiting on a person, and any blocker problems.
   Start a survey here instead of reading issues.
 - `list <milestone>`: every open issue in it, one line each, with its open
   blockers.

@@ -318,6 +318,13 @@ def cmd_survey(a) -> None:
     print("ready:" + ("" if ready else " none"))
     for i in ready:
         print(f"  #{i['number']} {priority(i)}  {i['title']}")
+    # The questions themselves, not just a count: comments notify no one.
+    human = sorted((issues[n] for n in shown if status(issues[n]) == "ready-for-human"),
+                   key=lambda i: (-RANK[priority(i)], i["number"]))
+    if human:
+        print("waiting on a person:")
+        for i in human:
+            print(f"  #{i['number']} {priority(i)}  {i['title']}")
     for p in g.problems(None if not a.milestone else shown):
         print(p)
 

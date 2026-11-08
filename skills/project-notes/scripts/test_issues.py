@@ -200,11 +200,13 @@ class Issues(unittest.TestCase):
         st["issues"]["11"] = {"title": "Start here", "state": "OPEN", "labels": [], "milestone": None}
         self.save(st)
         self.assertIn("(no milestone) (1):", self.ok("survey"))  # an unlabelled issue isn't a ticket
-        ready = out.split("ready:")[1].split("!")[0]
+        ready = out.split("ready:")[1].split("waiting on a person:")[0]
         self.assertIn("#2 soon  Helper", ready)
         self.assertNotIn("#3", ready)  # blocked
         self.assertNotIn("#9", ready)  # in progress
         self.assertIn("#6 soon", ready)  # blocked only by a closed issue: unblocked
+        self.assertNotIn("#5", ready)
+        self.assertIn("waiting on a person:\n  #5 later  Maintainer decides", out)
         self.assertIn("! cycle #7 > #8 > #7", out)
 
     def test_survey_one_milestone(self):
