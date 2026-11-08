@@ -20,7 +20,7 @@ The tickets are GitHub issues in the milestone the sheet's Tickets line names. E
 | Stop, or a question for the maintainer | `<issues> release <n> ready-for-human --comment-file <file>` |
 | Done | `<issues> close <n> --completed --comment-file <file>` |
 | A note on a ticket that stays open | `<issues> comment <n> --comment-file <file>` |
-| A question for the maintainer on a ticket already closed (the whole-run review's, say) | `<issues> new --title <the question> --body-file <file> --org <o> --project <p> --repo <r> --type task --status ready-for-human --priority <the ticket's> --milestone <milestone>`, the body: what was found, where, options, a recommendation, and the closed ticket's number; then `<issues> comment <closed> --comment-file <file>`, one line naming the new issue. Once answered, the new issue becomes the follow-up ticket |
+| A question for the maintainer on a ticket already closed (the whole-run review's, say) | `<issues> new --title <the question> --body-file <file> --org <o> --project <p> --repo <r> --type task --status ready-for-human --priority <the ticket's> --milestone <milestone>` (leave `--priority` out when the ticket's is later: the helper takes only now and soon), the body: what was found, where, options, a recommendation, and the closed ticket's number; then `<issues> comment <closed> --comment-file <file>`, one line naming the new issue. Once answered, the new issue becomes the follow-up ticket |
 | A finding that needs its own ticket (out of the run's scope) | `<issues> new --title <t> --body-file <file> --org <o> --project <p> --repo <r> --type task --status needs-triage --milestone <milestone>`, no priority (triage sets it) |
 | A blocker found mid-run | `<issues> block <n> <blocker>`; it reports a blocker below the ticket's priority: raise it with `<issues> priority <blocker> <p> --comment-file <file>` |
 
@@ -76,12 +76,12 @@ Each starts without your context. Copy the four briefs into your scratchpad, fil
 
 An agent the account's session limit stops is resumed where it stopped once the limit resets, with one message saying so; never restarted.
 
-Keep your own notes (a run-state file in your scratchpad: agents, heads, what's next) if you like: they carry a run past compaction. Write each note in the same turn as the action it records, as one more call beside it, never in a turn of its own: every turn re-reads your whole context, and one run spent a fifth of its turns on note edits alone.
+Keep your own notes (a run-state file in your scratchpad: agents, heads, what's next) if you like: they carry a run past compaction. Write each note in the same turn as the action it records, as one more call beside it, never in a turn of its own: every turn re-reads your whole context, and one run spent a fifth of its turns on note edits alone. The note on an agent you start goes in the same message as its Agent call, not the turn after its launch result.
 
 ## After each ticket
 
 1. Read `git diff --stat` for the branch and the reviewer's file.
-2. When it's merged, mark the ticket Done with its report as the comment, at most six lines: branch, short SHAs, what landed, tests, review and browser results, any box left undone; the scratchpad reports hold the rest. A ticket that can't be finished is stopped instead, as the hard limits say.
+2. When it's merged, apply any notes-repo text from the developer's report (a box that changes a research file or a decision's note: the developer gives the exact text, and you edit `<notes>` and commit it with the report), then mark the ticket Done with its report as the comment, at most six lines: branch, short SHAs, what landed, tests, review and browser results, any box left undone; the scratchpad reports hold the rest. A ticket that can't be finished is stopped instead, as the hard limits say.
 3. Add the ticket's row and findings to the report draft, and what it landed to the PR body, in your scratchpad now, not at the end.
 4. Remove the ticket's worktree and drop its database, if it has one. Start the next phase.
 
