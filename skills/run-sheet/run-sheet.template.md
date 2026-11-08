@@ -8,7 +8,7 @@ line, delete none.
 - **Tickets:** issues in milestone `<project>/<feature>`.
 - **Repo:** `<owner/repo>` at `~/code/<owner>/<repo>`.
 - **Feature branch:** `<branch>`, worktree `~/code/<owner>/<repo>.<branch>`.
-- **PR:** `<owner/repo#n>`, or "open a draft".
+- **PR:** `<owner/repo#n>`, or "open a draft" (`gh pr create --draft --base main --head <branch> ...`; `--draft` comes first, straight after `create`, so it runs without a prompt).
 - **Desks:** <n>.
 - **Report:** `sessions/<date>-<slug>.md`.
 
@@ -78,7 +78,7 @@ Which checks each ticket passes through, and how its work lands. Each option nam
 ## Tickets elsewhere that this run unblocks
 
 - <#n> (from the `blocks:` line of `issues.py chain`), blocked by <#n>. Closing the blocker clears the link; the issue keeps its status, and a comment says it waits on this PR reaching `main`.
-- PR: if `gh pr create` is refused, the run goes on and the report asks the user to open it.
+- PR: if `gh pr create --draft ...` is refused, the run goes on and the report asks the user to open it.
 
 ## Final sweep
 
