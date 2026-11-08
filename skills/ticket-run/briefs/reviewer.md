@@ -16,7 +16,7 @@ Beyond the skill's two axes, check:
 - the developer's report (the message names its file): does the code match what it claims;
 - commit messages and code name no ticket (its number, title or notes-repo path): the team reading the repo doesn't know the tickets, so each is a fix-required finding.
 
-Write the review with the Write tool to `<scratchpad>/reports/review-<NN>.md`:
+Write the review with the Write tool to `<scratchpad>/reports/review-<NN>.md`, and change it only with Write or Edit. Nothing in a run is published: no Artifact tool, whose edits publish the file they change.
 1. A verdict line: pass, or fix-required.
 2. Each finding as `fix-required` or `note`, with file:line, what is wrong, and what would fix it. A fix-required finding is one that breaks a rule, a box, a decision, or the tests' honesty; style preferences are notes.
 3. Anything built beyond what is settled, listed separately as "unsettled".
