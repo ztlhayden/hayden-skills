@@ -40,6 +40,12 @@ rows.append(('MAIN',) + cost(main))
 # role buckets
 def role(first):
     f = first.lower()
+    # The role sentence that opens each brief's prompt, most specific first.
+    if 'whole-run reviewer' in f or 'axis of a code review' in f: return 'whole-run review'
+    if 'developer fixing' in f: return 'fix pass'
+    if 'you are the developer' in f: return 'developer'
+    if 'you are the reviewer' in f: return 'reviewer'
+    if 'you are the merger' in f: return 'merger'
     if f.startswith('build ticket'): return 'developer'
     if f.startswith('review ticket'): return 'reviewer'
     if f.startswith('merge ticket'): return 'merger'
