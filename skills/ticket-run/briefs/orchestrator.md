@@ -27,7 +27,7 @@ The tickets are GitHub issues in the milestone the sheet's Tickets line names. E
 - Every ticket change goes through `<issues>`, never raw `gh`: with the helper allowed in the user's settings (the skills' README), the run never waits on an approval for one.
 - Only you change tickets; the briefs tell every other agent to leave them alone. Write each comment to a scratchpad file first, starting `**<today> (agent, ticket run):**`.
 - `claim` refuses a ticket in progress (an agent's or the maintainer's), a closed one and one with an open blocker. A ticket the maintainer has in progress, or one already claimed, is not yours: leave it and make it a finding. `claim --force` only for a blocker the sheet's Lanes count as done (see below). `close` prints the issues it unblocks. A comment posted as the maintainer's account notifies nobody, which is why a question also sets `ready-for-human`, where `survey` lists it. A comment on a closed issue is seen by no one: a question about a closed ticket gets its own issue (the table's row). The issue's boxes stay as they are (ticking one would rewrite its body): the closing comment names any box left undone and why.
-- Issues change on GitHub, with nothing to commit. What you write in `<notes>` (the run's report) you commit and push yourself: stage only the files you changed (never `git add -A`; `.claude/worktrees/` is untracked and stays so), commit, fetch, rebase `origin/main`, `timeout 60 git -C <notes> push origin HEAD:main`.
+- Issues change on GitHub, with nothing to commit. What you write in `<notes>` (the run's report) you commit and push yourself, from a worktree of `<notes>` rather than its shared checkout (a background session's isolation guard refuses edits there): stage only the files you changed (never `git add -A`; `.claude/worktrees/` is untracked and stays so), commit, fetch, rebase `origin/main`, `timeout 60 git -C <notes> push origin HEAD:main`.
 
 ## Hard limits
 
@@ -91,8 +91,11 @@ When no lane has a buildable ticket left. If a ticket is blocked only on a relea
 
 1. One fresh Opus reviewer runs `/code-review` on the feature branch from the tip SHA recorded at the start (name it in the prompt), never from `origin/main`. One Sonnet developer fixes the fix-required findings on its own branch, which the same reviewer (resumed) checks and a merger lands: two rounds at most, as for a ticket. Anything unsettled becomes a finding, commented on the ticket it belongs to.
 2. A fresh browser tester checks the screens the sheet lists once more on the merged branch, at all three sizes, then closes its session and servers. When the sheet's Gates say the sweep covers what changed since checked: from `git diff --stat` between each screen's passing check and the tip, send only the screens whose code changed since, and every seam; the report names each screen skipped and the check that covered it. No screen changed and no seam: no sweep, and the report says so.
-3. Push the branch; confirm with `git ls-remote`. Update the PR body: what landed, what was left for the maintainer and why (in plain words, as above), migrations added, any other repo's half that must land first.
-4. Remove the remaining ticket worktrees (leave the feature branch's). The pre-commit hook ran throughout; the retro measures it, not you.
+3. Where the run releases a package, its packed-app check (the package built, packed, installed in a fresh app and drawn) runs again on the tip that will merge, after every later change; a check on an earlier commit doesn't count. One release shipped an import the package didn't contain, added by a fix round after its check.
+4. Push the branch; confirm with `git ls-remote`. Update the PR body: what landed, what was left for the maintainer and why (in plain words, as above), migrations added, any other repo's half that must land first.
+5. Remove the remaining ticket worktrees (leave the feature branch's). The pre-commit hook ran throughout; the retro measures it, not you.
+
+Work after the report (the maintainer's answers to its questions, opening or merging the PR, `/run-retro`) starts in a fresh session that reads the report, not in this one: every turn re-reads the whole run, and one run's orchestrator reached 423k and a third of the run's cost by carrying on.
 
 ## The report
 

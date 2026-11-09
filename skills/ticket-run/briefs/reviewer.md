@@ -12,7 +12,7 @@ Beyond the skill's two axes, check:
 - anything built that the ticket, spec and decisions do not settle (an invented rule, a widened scope, a reshaped box), which is a finding even when the code is good;
 - tests: do they follow the sheet's Tests, cover the ticket's listed tests, and use made-up content;
 - generated files and schema changes regenerated and committed as the sheet's Generated files says;
-- the full checks: run the sheet's Checks and report the result;
+- the full checks: run the sheet's Checks in the foreground, waiting as long as a shared lock makes them wait, and report the result. Never hand back while one is still running as a background task: each of its notifications wakes you to hand back again (one reviewer re-sent the same verdict a dozen times, at nine times a review's usual cost);
 - the developer's report (the message names its file): does the code match what it claims;
 - commit messages and code name no ticket (its number, title or notes-repo path): the team reading the repo doesn't know the tickets, so each is a fix-required finding.
 

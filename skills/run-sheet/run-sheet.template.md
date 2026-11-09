@@ -21,7 +21,7 @@ last sheet for the same repo where there is one.
 
 - **Stack:** <one line>. _Example: a Next.js 16 shop on Postgres, its schema in Drizzle._
 - **Install:** <command per new worktree; what the merger runs when the lockfile changes>. _Example: `npm ci`, in each worktree and after a merge that changes `package-lock.json`._
-- **Checks:** <full set, in order; format fix; one test file; any check that already fails on `main`, its error count, and how agents count it as passing>. _Example: `npm run format:check` (fix with `npm run format`), `npm run lint`, `npm run typecheck`, `npm test`; one file: `npm test -- tests/orders/<file>.test.ts`. The pre-commit hook runs prettier, typecheck and lint._
+- **Checks:** <full set, in order; format fix; one test file; any check that already fails on `main`, its error count, and how agents count it as passing; any on-disk cache the test runner keeps, and its clear command>. _Example: `npm run format:check` (fix with `npm run format`), `npm run lint`, `npm run typecheck`, `npm test`; one file: `npm test -- tests/orders/<file>.test.ts`. The pre-commit hook runs prettier, typecheck and lint._
 - **Database:** <none, or: container, one database per worktree and its name, how the worktree points at it, reset command>. _Example: Postgres container `shop-db` (user and password `shop`, port 5432); databases `shop_t<NN>` per developer, `shop_check` for the tester, `shop_<feature>` for the feature worktree; each worktree's `.env` `DATABASE_URL` names its own. Reset: `docker exec shop-db psql -U shop -c 'drop database if exists <db>'`, then `-c 'create database <db>'`. Tests truncate the database they run against._
 - **Generated files:** <each file and its regenerate command; migrations; what to do with each, and the lockfile, on a merge conflict>. _Example: `src/db/types.ts` (`npm run generate:types`). A schema change: `npm run generate:types`, then `npm run db:migration <name>`; read the SQL (a rename stays a rename, not a drop and an add) and check it on an empty database; a migration with guards gets a test of its refusal where the harness can seed old-shape rows, otherwise the report says how it was checked. On a conflict take either side of a generated file and regenerate; `package-lock.json`: the feature branch's side, then `npm install`, and commit what it writes. Two migrations from the same base: keep the feature branch's, delete the incoming one and its journal entry, generate it again on the merged code, and compare that it carries exactly the incoming schema change._
 - **Developers read:** <README sections, code folders, library docs; check each path with `ls` on the branch the run starts from>. _Example: `README.md` (Orders, Local development, Tests); `src/orders/`, `src/components/admin/`, `tests/orders/` (prior art and helpers), `src/db/types.ts`; the ORM's docs for relations and transactions in `node_modules/drizzle-orm/`._
@@ -56,6 +56,8 @@ A ticket left `ready-for-human` only for a check by eye: its dependents start <o
 
 Longest lane first. Opus for a custom admin screen or framework internals; Sonnet for a rule, a field or a migration.
 
+A release lane (version bumps, a package published from `main`): its packed-app check (built, packed, installed in a fresh app, drawn) runs again on the tip that will merge, after any later change; the Final sweep lists it.
+
 ## Gates
 
 Which checks each ticket passes through, and how its work lands. Each option names its choice; the first is the default, the full set. A lighter choice saves agents, and every agent saved also saves the orchestrator six to eight turns, each re-reading its whole context. The Lanes table's Notes column marks the tickets an option singles out.
@@ -83,3 +85,4 @@ Which checks each ticket passes through, and how its work lands. Each option nam
 ## Final sweep
 
 - <screen>, <screen>, <screen>: three sizes.
+- <where a package is released: the packed-app check, on the tip that will merge>
